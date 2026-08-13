@@ -10,7 +10,7 @@
 <body>
 <header class="topbar">
   <div>
-    <div class="eyebrow">WORSHIP TOOLS · V2.4</div>
+    <div class="eyebrow">WORSHIP TOOLS · V2.5</div>
     <h1>排练包</h1>
   </div>
   <button id="saveBtn" class="button primary">保存歌曲</button>
@@ -65,11 +65,38 @@
         <input id="candidateSource" placeholder="来源，例如网页 / Chordify">
         <input id="candidateKey" placeholder="Key，例如 D">
       </div>
-      <input id="candidateUrl" placeholder="谱子页面链接">
-      <textarea id="candidateChords" placeholder="可选：粘贴可编辑的谱面文字/和弦内容。五线谱或图片谱暂时可只保存来源链接。"></textarea>
+      <div class="candidate-row preview-row">
+        <input id="candidateUrl" placeholder="谱子页面 / 图片 / PDF 链接">
+        <select id="candidatePreviewType" aria-label="预览方式">
+          <option value="auto">自动判断预览</option>
+          <option value="page">网页链接</option>
+          <option value="image">图片</option>
+          <option value="pdf">PDF</option>
+          <option value="text">文字谱</option>
+        </select>
+      </div>
+      <textarea id="candidateChords" placeholder="可选：粘贴可编辑的谱面文字/和弦内容。简谱文字可以直接放这里。"></textarea>
       <button id="addCandidateBtn" class="button">加入候选</button>
     </div>
     <div id="candidateList" class="candidate-list"></div>
+  </section>
+
+  <section class="panel preview-panel" id="previewPanel">
+    <div class="section-kicker">SOURCE PREVIEW</div>
+    <div class="preview-head">
+      <div>
+        <h2>谱面预览</h2>
+        <p class="muted">预览当前选中的候选来源。网页若禁止嵌入，可直接点“打开来源”。</p>
+      </div>
+      <div class="preview-actions">
+        <a id="openSourceBtn" class="button" href="#" target="_blank" rel="noopener">打开来源</a>
+        <button id="clearPreviewBtn" class="button subtle">清除预览</button>
+      </div>
+    </div>
+    <div id="previewMeta" class="preview-meta">尚未选择候选。</div>
+    <div id="previewBody" class="preview-body">
+      <div class="empty">点击候选中的“预览”。</div>
+    </div>
   </section>
 
   <section class="panel editor-panel" id="editorPanel">

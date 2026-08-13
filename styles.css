@@ -31,3 +31,15 @@ select{width:100%;background:#09111f;border:1px solid #31405e;color:#fff;border-
 .type-badge{display:inline-block;padding:3px 8px;border-radius:999px;background:#17233a;border:1px solid #344563;color:#dce5f5;font-size:12px;font-weight:800;margin-right:6px}
 .search-query{margin-top:6px;color:#77849d;font-size:12px}
 @media(max-width:720px){.candidate-row.three{grid-template-columns:1fr}.score-tabs{grid-template-columns:1fr 1fr 1fr}.score-tab{font-size:13px;padding:11px 5px}}
+
+.preview-row{grid-template-columns:1fr 180px}
+.preview-panel{border-color:#3b4e6d}
+.preview-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.preview-actions{display:flex;gap:8px;flex-wrap:wrap}
+.preview-meta{margin:14px 0;color:var(--muted);font-size:14px}
+.preview-body{min-height:260px;border:1px solid #293955;border-radius:18px;background:#08101d;overflow:hidden;display:grid;place-items:center}
+.preview-body img{display:block;max-width:100%;height:auto}
+.preview-body iframe{width:100%;height:640px;border:0;background:#fff}
+.preview-text{width:100%;min-height:360px;margin:0;padding:20px;white-space:pre-wrap;color:#f5f7fb;background:#09111f;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Microsoft YaHei",monospace;line-height:1.6}
+.preview-warning{padding:24px;color:#b9c4d8;line-height:1.6;text-align:center}
+@media(max-width:720px){.preview-row{grid-template-columns:1fr}.preview-head{display:block}.preview-actions{margin-top:12px}.preview-body iframe{height:480px}}

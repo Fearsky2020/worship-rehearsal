@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 const NOTES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const FLATS={'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'};
 let player=null, toastTimer=null;
-const state={title:'尚未识别歌曲',videoId:null,youtubeUrl:'',candidates:[],adopted:null,original:null,shift:0,loopA:null,loopB:null,looping:false,scoreType:'chord'};
+const state={title:'尚未识别歌曲',videoId:null,youtubeUrl:'',candidates:[],adopted:null,original:null,shift:0,loopA:null,loopB:null,looping:false,scoreType:'chord',previewCandidate:null};
 
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),1800)}
 function status(type,title,text,icon='•'){const c=$('statusCard');c.className=`status-card ${type}`;c.querySelector('.status-icon').textContent=icon;$('statusTitle').textContent=title;$('statusText').textContent=text}
@@ -63,7 +63,30 @@ document.querySelectorAll('[data-score-tab]').forEach(btn=>btn.addEventListener(
 async function start(){const url=$('youtubeUrl').value.trim(),id=videoId(url);if(!id){status('error','链接无效','请粘贴有效 YouTube 链接。','!');return}state.youtubeUrl=url;state.videoId=id;status('idle','正在识别歌曲','读取 YouTube 标题并准备搜谱入口……','↻');try{ensurePlayer(id);state.title=await getTitle(id);$('songTitle').textContent=state.title;$('sourceHint').textContent='已识别歌曲。下面已经生成多个搜谱入口。';renderSearch();status('done','已准备搜谱','优先从现成谱中选一个；找不到再用 Music-AI。','✓')}catch(e){status('error','识别失败',e.message||'无法读取歌曲。','!')}}
 
 function addCandidate(c){c.id=Date.now()+Math.random();state.candidates.push(c);renderCandidates();toast(`已加入候选：${c.source}`)}
-function renderCandidates(){const box=$('candidateList');if(!state.candidates.length){box.innerHTML='<div class="empty">还没有候选谱。</div>';return}box.innerHTML=state.candidates.map((c,i)=>{const type=SCORE_TYPES[c.scoreType||'chord']||SCORE_TYPES.chord;return `<div class="candidate"><div class="candidate-head"><div><strong><span class="type-badge">${type.label}</span>${escapeHtml(c.source)}</strong><div class="candidate-meta">Key ${escapeHtml(c.key||'--')} · ${c.kind==='ai'?'Music-AI 分析':'现成谱'}</div></div><button class="button" data-adopt="${i}">采用</button></div>${c.url?`<div class="candidate-meta"><a href="${escapeHtml(c.url)}" target="_blank" rel="noopener">打开来源</a></div>`:''}<div class="candidate-actions"><button class="button subtle" data-remove="${i}">移除</button></div></div>`}).join('');box.querySelectorAll('[data-adopt]').forEach(b=>b.onclick=()=>adopt(Number(b.dataset.adopt)));box.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{state.candidates.splice(Number(b.dataset.remove),1);renderCandidates()})}
+function renderCandidates(){
+ const box=$('candidateList');
+ if(!state.candidates.length){box.innerHTML='<div class="empty">还没有候选谱。</div>';return}
+ box.innerHTML=state.candidates.map((c,i)=>{
+  const type=SCORE_TYPES[c.scoreType||'chord']||SCORE_TYPES.chord;
+  return `<div class="candidate">
+    <div class="candidate-head">
+      <div>
+        <strong><span class="type-badge">${type.label}</span>${escapeHtml(c.source)}</strong>
+        <div class="candidate-meta">Key ${escapeHtml(c.key||'--')} · ${c.kind==='ai'?'Music-AI 分析':'现成谱'}</div>
+      </div>
+      <button class="button" data-adopt="${i}">采用</button>
+    </div>
+    ${c.url?`<div class="candidate-meta"><a href="${escapeHtml(c.url)}" target="_blank" rel="noopener">打开来源</a></div>`:''}
+    <div class="candidate-actions">
+      <button class="button" data-preview="${i}">预览</button>
+      <button class="button subtle" data-remove="${i}">移除</button>
+    </div>
+  </div>`
+ }).join('');
+ box.querySelectorAll('[data-adopt]').forEach(b=>b.onclick=()=>adopt(Number(b.dataset.adopt)));
+ box.querySelectorAll('[data-preview]').forEach(b=>b.onclick=()=>previewCandidate(Number(b.dataset.preview)));
+ box.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{state.candidates.splice(Number(b.dataset.remove),1);renderCandidates()});
+}
 
 function adopt(i){
  const c=state.candidates[i];if(!c)return;
@@ -82,11 +105,52 @@ function adopt(i){
  toast(`已采用：${c.source}`);
 }
 
-$('addCandidateBtn').onclick=()=>{const scoreType=$('candidateType').value,source=$('candidateSource').value.trim(),url=$('candidateUrl').value.trim(),key=$('candidateKey').value.trim(),chords=$('candidateChords').value.trim();if(!source){toast('请填写来源');return}addCandidate({scoreType,source,url,key,chords,kind:'chart'});$('candidateSource').value='';$('candidateUrl').value='';$('candidateKey').value='';$('candidateChords').value=''};
+$('addCandidateBtn').onclick=()=>{const scoreType=$('candidateType').value,previewType=$('candidatePreviewType').value,source=$('candidateSource').value.trim(),url=$('candidateUrl').value.trim(),key=$('candidateKey').value.trim(),chords=$('candidateChords').value.trim();if(!source){toast('请填写来源');return}addCandidate({scoreType,previewType,source,url,key,chords,kind:'chart'});$('candidateSource').value='';$('candidateUrl').value='';$('candidateKey').value='';$('candidateChords').value='';$('candidatePreviewType').value='auto'};
+
+
+function detectPreviewType(c){
+ if(c.previewType && c.previewType!=='auto') return c.previewType;
+ const url=(c.url||'').toLowerCase().split('?')[0];
+ if(/\.(png|jpg|jpeg|webp|gif)$/.test(url)) return 'image';
+ if(/\.pdf$/.test(url)) return 'pdf';
+ if(c.chords && !c.url) return 'text';
+ if(c.chords && c.scoreType==='numbered') return 'text';
+ return 'page';
+}
+function previewCandidate(i){
+ const c=state.candidates[i]; if(!c)return;
+ state.previewCandidate={...c};
+ const type=SCORE_TYPES[c.scoreType||'chord']||SCORE_TYPES.chord;
+ $('previewMeta').textContent=`${type.label} · 来源：${c.source} · Key ${c.key||'--'}`;
+ const open=$('openSourceBtn');
+ if(c.url){open.href=c.url;open.style.pointerEvents='auto';open.style.opacity='1'}else{open.href='#';open.style.pointerEvents='none';open.style.opacity='.45'}
+ const body=$('previewBody');
+ const mode=detectPreviewType(c);
+ if(mode==='image' && c.url){
+   body.innerHTML=`<img src="${escapeHtml(c.url)}" alt="${escapeHtml(type.label)}预览" onerror="this.parentElement.innerHTML='<div class=&quot;preview-warning&quot;>图片无法直接加载。请点上方“打开来源”。</div>'">`;
+ }else if(mode==='pdf' && c.url){
+   body.innerHTML=`<iframe src="${escapeHtml(c.url)}" title="PDF 谱面预览"></iframe>`;
+ }else if(mode==='text'){
+   body.innerHTML=`<pre class="preview-text">${escapeHtml(c.chords||'暂无文字内容')}</pre>`;
+ }else if(c.url){
+   body.innerHTML=`<iframe src="${escapeHtml(c.url)}" title="谱面来源预览"></iframe>`;
+ }else if(c.chords){
+   body.innerHTML=`<pre class="preview-text">${escapeHtml(c.chords)}</pre>`;
+ }else{
+   body.innerHTML='<div class="preview-warning">这个候选只有来源信息，没有可直接预览的内容。</div>';
+ }
+ $('previewPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+$('clearPreviewBtn').onclick=()=>{
+ state.previewCandidate=null;
+ $('previewMeta').textContent='尚未选择候选。';
+ $('openSourceBtn').href='#';
+ $('previewBody').innerHTML='<div class="empty">点击候选中的“预览”。</div>';
+};
 
 $('jsonFile').onchange=async e=>{const f=e.target.files?.[0];if(f)$('jsonText').value=await f.text()};
 $('clearJsonBtn').onclick=()=>{$('jsonText').value='';$('jsonFile').value=''};
-$('applyJsonBtn').onclick=()=>{try{const d=JSON.parse($('jsonText').value.trim());let chords='';if(Array.isArray(d.chords))chords=d.chords.map(x=>`${fmt(x.start??x.time??0)}  ${x.chord??x.label??''}`).join('\n');else if(typeof d.chords==='string')chords=d.chords;addCandidate({scoreType:'chord',source:'Music-AI',url:'',key:d.key||'',bpm:d.bpm||'',meter:d.meter||'',chords,kind:'ai'})}catch(e){toast('JSON 格式不正确')}};
+$('applyJsonBtn').onclick=()=>{try{const d=JSON.parse($('jsonText').value.trim());let chords='';if(Array.isArray(d.chords))chords=d.chords.map(x=>`${fmt(x.start??x.time??0)}  ${x.chord??x.label??''}`).join('\n');else if(typeof d.chords==='string')chords=d.chords;addCandidate({scoreType:'chord',previewType:'text',source:'Music-AI',url:'',key:d.key||'',bpm:d.bpm||'',meter:d.meter||'',chords,kind:'ai'})}catch(e){toast('JSON 格式不正确')}};
 
 function norm(n){return FLATS[n]||n}
 function trRoot(root,s){const i=NOTES.indexOf(norm(root));return i<0?root:NOTES[(i+s+1200)%12]}
