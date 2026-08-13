@@ -1,176 +1,367 @@
+
 const $ = (id) => document.getElementById(id);
+
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const FLAT_TO_SHARP = {'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'};
+
 const state = {
-  originalText: '', shift: 0, loopA: null, loopB: null, looping: false,
-  videoId: null, title: '', songKey: '', bpm: '', meter: '', analysis: null,
+  title: '未命名歌曲',
+  key: '--',
+  bpm: '--',
+  meter: '--',
+  originalChordText: '',
+  shift: 0,
+  videoId: null,
+  loopA: null,
+  loopB: null,
+  looping: false
 };
+
 let player = null;
-let loopTimer = null;
+let toastTimer = null;
 
-const chromaticSharp = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-const chromaticFlat  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
-const noteIndex = {C:0,'B#':0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,Fb:4,'E#':5,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11,Cb:11};
+function showToast(message){
+  const t = $('toast');
+  t.textContent = message;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 1800);
+}
 
-function toast(msg) {
-  const t = $('toast'); t.textContent = msg; t.classList.add('show');
-  clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 1800);
+function setStatus(type, title, text, icon){
+  const card = $('statusCard');
+  card.className = `status-card ${type}`;
+  $('statusTitle').textContent = title;
+  $('statusText').textContent = text;
+  card.querySelector('.status-icon').textContent = icon || '•';
 }
-function extractYouTubeId(url) {
-  if (!url) return null;
-  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/);
-  if (m) return m[1];
-  try { const u = new URL(url); if (u.hostname.includes('youtube.com')) return u.searchParams.get('v'); } catch (_) {}
-  return null;
+
+function extractVideoId(url){
+  if(!url) return null;
+  try{
+    const u = new URL(url.trim());
+    if(u.hostname.includes('youtu.be')) return u.pathname.replace('/','').split('/')[0];
+    if(u.searchParams.get('v')) return u.searchParams.get('v');
+    const m = u.pathname.match(/\/(shorts|embed)\/([^/?]+)/);
+    if(m) return m[2];
+  }catch(e){}
+  const m = url.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([A-Za-z0-9_-]{6,})/);
+  return m ? m[1] : null;
 }
-function formatTime(sec) {
-  if (sec == null || Number.isNaN(sec)) return '--:--';
-  const m = Math.floor(sec / 60); const s = Math.floor(sec % 60).toString().padStart(2,'0'); return `${m}:${s}`;
+
+function onYouTubeIframeAPIReady(){
+  // player created lazily
 }
-function currentTime() { try { return player?.getCurrentTime ? player.getCurrentTime() : 0; } catch (_) { return 0; } }
-function chooseScale(note) { return note.includes('b') ? chromaticFlat : chromaticSharp; }
-function transposeRoot(root, semitones) {
-  const idx = noteIndex[root]; if (idx == null) return root;
-  return chooseScale(root)[(idx + semitones + 120) % 12];
-}
-function transposeChordToken(token, semitones) {
-  const m = token.match(/^([A-G](?:#|b)?)([^/\s]*)(?:\/([A-G](?:#|b)?))?$/); if (!m) return token;
-  const [, root, suffix, bass] = m;
-  return transposeRoot(root,semitones) + suffix + (bass ? '/' + transposeRoot(bass,semitones) : '');
-}
-function transposeText(text, semitones) {
-  return text.replace(/(?<![\p{L}\p{N}])([A-G](?:#|b)?(?:maj|min|m|M|dim|aug|sus|add|no|\d|\+|°|ø|\(|\)|#|b)*(?:\/[A-G](?:#|b)?)?)(?![\p{L}\p{N}])/gu,
-    (match) => transposeChordToken(match,semitones));
-}
-function normalizedKey(key) {
-  const m = (key || '').trim().match(/^([A-G](?:#|b)?)(m)?$/); return m ? {root:m[1],minor:!!m[2]} : null;
-}
-function displayKeyForShift() {
-  const k = normalizedKey(state.songKey); if (!k) return '--';
-  return transposeRoot(k.root,state.shift) + (k.minor ? 'm' : '');
-}
-function renderTranspose() {
-  $('chords').value = transposeText(state.originalText || '',state.shift);
-  const dk = displayKeyForShift(); $('displayKey').textContent = dk; $('metaKey').textContent = dk;
-  $('shiftLabel').textContent = state.shift === 0 ? '原调' : (state.shift > 0 ? `+${state.shift}` : `${state.shift}`);
-}
-function syncMeta() {
-  $('chartTitle').textContent = state.title || '未命名歌曲';
-  $('metaKey').textContent = displayKeyForShift(); $('metaBpm').textContent = state.bpm || '--'; $('meterBadge').textContent = state.meter || '--';
-  renderTranspose();
-}
-function readVideoTitle() {
-  try {
-    const data = player?.getVideoData?.();
-    if (data?.title) {
-      state.title = data.title;
-      $('statusTitle').textContent = '已自动读取';
-      syncMeta(); renderLibrary();
-    }
-  } catch (_) {}
-}
-function loadVideo() {
-  const id = extractYouTubeId($('youtubeUrl').value.trim());
-  if (!id) return toast('没识别出 YouTube 链接');
-  state.videoId = id; $('emptyPlayer').style.display = 'none'; $('statusTitle').textContent = '正在读取…';
-  if (player?.loadVideoById) { player.loadVideoById(id); setTimeout(readVideoTitle, 900); }
-  else if (window.YT?.Player) {
-    player = new YT.Player('player', { videoId:id, playerVars:{playsinline:1,rel:0}, events:{
-      onReady:() => { startLoopWatcher(); setTimeout(readVideoTitle, 500); },
-      onStateChange:() => readVideoTitle()
-    }});
+window.onYouTubeIframeAPIReady = onYouTubeIframeAPIReady;
+
+function ensurePlayer(videoId){
+  $('playerMessage').style.display = 'none';
+  if(player && typeof player.loadVideoById === 'function'){
+    player.loadVideoById(videoId);
+    return;
   }
-  toast('正在生成排练包');
-}
-window.onYouTubeIframeAPIReady = () => { if (state.videoId) loadVideo(); };
-function startLoopWatcher() {
-  clearInterval(loopTimer); loopTimer = setInterval(() => {
-    if (!state.looping || state.loopA == null || state.loopB == null || !player) return;
-    const t = currentTime(); if (t >= state.loopB || t < state.loopA - 0.5) { player.seekTo(state.loopA,true); player.playVideo?.(); }
-  }, 180);
-}
-function updateLoopUI() {
-  $('aTime').textContent = formatTime(state.loopA); $('bTime').textContent = formatTime(state.loopB);
-  $('toggleLoop').textContent = `循环：${state.looping ? '开' : '关'}`;
-}
-function chordName(item) { return item?.chord || item?.label || item?.name || item?.value || ''; }
-function chordStart(item) {
-  const v = item?.start ?? item?.time ?? item?.timestamp ?? item?.start_time ?? item?.startTime; return Number(v);
-}
-function buildChordText(chords) {
-  if (typeof chords === 'string') return chords;
-  if (!Array.isArray(chords)) return '';
-  if (chords.length && typeof chords[0] === 'string') return chords.join(' | ');
-  return chords.map((c) => {
-    const name = chordName(c); const t = chordStart(c);
-    if (!name) return '';
-    return Number.isFinite(t) ? `${formatTime(t)}  ${name}` : name;
-  }).filter(Boolean).join('\n');
-}
-function pick(obj, keys) {
-  for (const k of keys) if (obj?.[k] != null && obj[k] !== '') return obj[k]; return null;
-}
-function applyAnalysisObject(raw) {
-  const data = raw?.analysis || raw?.result || raw?.song || raw;
-  const key = pick(data,['key','tonic','song_key','detected_key']);
-  const bpm = pick(data,['bpm','tempo','BPM']);
-  const meter = pick(data,['meter','time_signature','timeSignature','signature']);
-  const title = pick(data,['title','song_title','name']);
-  const chords = pick(data,['chords','chord_timeline','chordTimeline','segments']);
-  if (title && !state.title) state.title = String(title);
-  if (key) state.songKey = String(key).trim();
-  if (bpm) state.bpm = Math.round(Number(bpm) * 100) / 100;
-  if (meter) state.meter = String(meter);
-  const chordText = buildChordText(chords);
-  if (chordText) { state.originalText = chordText; state.shift = 0; $('statusChords').textContent = '已导入'; }
-  if (key || bpm || meter) $('statusAnalysis').textContent = '已导入';
-  state.analysis = raw; syncMeta();
-  if (!key && !bpm && !chordText) toast('JSON 读到了，但没找到可识别的分析字段'); else toast('Music-AI 分析已应用');
-}
-function parseAndApplyAnalysis(text) {
-  try { applyAnalysisObject(JSON.parse(text)); } catch (e) { toast('JSON 格式有问题'); }
-}
-function snapshot() {
-  return { id:state.videoId || Date.now().toString(), youtubeUrl:$('youtubeUrl').value.trim(), title:state.title, songKey:state.songKey,
-    bpm:state.bpm, meter:state.meter, originalText:state.originalText, loopA:state.loopA, loopB:state.loopB, savedAt:Date.now() };
-}
-function getLibrary() { try { return JSON.parse(localStorage.getItem('worship-rehearsal-library') || '[]'); } catch (_) { return []; } }
-function setLibrary(items) { localStorage.setItem('worship-rehearsal-library',JSON.stringify(items)); }
-function save() {
-  if (!state.videoId && !state.title) return toast('先生成一首歌曲');
-  const item = snapshot(); const lib = getLibrary(); const idx = lib.findIndex(x => x.id === item.id);
-  if (idx >= 0) lib[idx] = item; else lib.unshift(item); setLibrary(lib.slice(0,50)); renderLibrary(); toast('已保存到歌曲库');
-}
-function loadLibraryItem(item) {
-  state.videoId=item.id; state.title=item.title||''; state.songKey=item.songKey||''; state.bpm=item.bpm||''; state.meter=item.meter||'';
-  state.originalText=item.originalText||''; state.shift=0; state.loopA=item.loopA??null; state.loopB=item.loopB??null;
-  $('youtubeUrl').value=item.youtubeUrl||''; $('statusTitle').textContent=state.title?'已保存':'等待链接';
-  $('statusAnalysis').textContent=(state.songKey||state.bpm)?'已保存':'等待分析'; $('statusChords').textContent=state.originalText?'已保存':'等待分析';
-  updateLoopUI(); syncMeta(); loadVideo(); window.scrollTo({top:0,behavior:'smooth'});
-}
-function renderLibrary() {
-  const lib=getLibrary(); const box=$('library'); box.innerHTML=''; $('emptyLibrary').style.display=lib.length?'none':'block';
-  lib.forEach(item => {
-    const row=document.createElement('button'); row.className='library-item';
-    row.innerHTML=`<span><strong>${escapeHtml(item.title||'未命名歌曲')}</strong><small>${escapeHtml(item.songKey||'--')} · ${escapeHtml(String(item.bpm||'--'))} BPM</small></span><span>打开 →</span>`;
-    row.addEventListener('click',()=>loadLibraryItem(item)); box.appendChild(row);
+  player = new YT.Player('player', {
+    videoId,
+    playerVars:{playsinline:1, rel:0},
+    events:{
+      onReady: ()=>{},
+      onStateChange: ()=>{}
+    }
   });
 }
-function escapeHtml(s) { return String(s).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
 
-$('generateBtn').addEventListener('click',loadVideo);
-$('youtubeUrl').addEventListener('paste',() => setTimeout(() => { if (extractYouTubeId($('youtubeUrl').value)) $('statusTitle').textContent='链接已识别'; },0));
-$('analysisFile').addEventListener('change',async(e)=>{ const f=e.target.files?.[0]; if(!f)return; const text=await f.text(); $('analysisJson').value=text; parseAndApplyAnalysis(text); });
-$('applyAnalysis').addEventListener('click',()=>parseAndApplyAnalysis($('analysisJson').value));
-$('clearAnalysis').addEventListener('click',()=>{ $('analysisJson').value=''; state.analysis=null; toast('分析输入已清空'); });
-$('chords').addEventListener('input',()=>{ if(state.shift===0){state.originalText=$('chords').value; $('statusChords').textContent=state.originalText?'已编辑':'等待分析';} });
-$('up').addEventListener('click',()=>{ if(!state.originalText)return toast('还没有和弦谱'); state.shift++; renderTranspose(); });
-$('down').addEventListener('click',()=>{ if(!state.originalText)return toast('还没有和弦谱'); state.shift--; renderTranspose(); });
-$('resetTranspose').addEventListener('click',()=>{ state.shift=0; renderTranspose(); });
-$('copyChords').addEventListener('click',async()=>{ try{await navigator.clipboard.writeText($('chords').value);toast('和弦谱已复制');}catch(_){toast('复制失败');} });
-$('setA').addEventListener('click',()=>{ state.loopA=currentTime(); if(state.loopB!=null&&state.loopB<=state.loopA)state.loopB=null; updateLoopUI(); });
-$('setB').addEventListener('click',()=>{ const t=currentTime(); if(state.loopA==null)return toast('先设置 A 点'); if(t<=state.loopA+.3)return toast('B 点要晚于 A 点'); state.loopB=t; updateLoopUI(); });
-$('toggleLoop').addEventListener('click',()=>{ if(state.loopA==null||state.loopB==null)return toast('先设置 A 和 B'); state.looping=!state.looping; updateLoopUI(); startLoopWatcher(); });
-$('clearLoop').addEventListener('click',()=>{ state.loopA=state.loopB=null; state.looping=false; updateLoopUI(); });
-$('saveBtn').addEventListener('click',save);
-$('clearLibrary').addEventListener('click',()=>{ if(!getLibrary().length)return; if(confirm('清空这台设备上的歌曲库？')){setLibrary([]);renderLibrary();toast('歌曲库已清空');} });
+async function fetchTitle(videoId){
+  const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  try{
+    const endpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(watchUrl)}&format=json`;
+    const res = await fetch(endpoint);
+    if(!res.ok) throw new Error(`oEmbed ${res.status}`);
+    const data = await res.json();
+    return data.title || '未命名歌曲';
+  }catch(err){
+    return 'YouTube 歌曲';
+  }
+}
 
-renderLibrary(); updateLoopUI(); syncMeta();
+async function generatePack(){
+  const url = $('youtubeUrl').value.trim();
+  const videoId = extractVideoId(url);
+  if(!videoId){
+    setStatus('error','链接无效','请粘贴一个有效的 YouTube 链接。','!');
+    return;
+  }
+
+  state.videoId = videoId;
+  setStatus('processing','正在生成基础排练包','正在读取 YouTube 视频和标题……','↻');
+
+  try{
+    ensurePlayer(videoId);
+    const title = await fetchTitle(videoId);
+    state.title = title;
+    $('songTitle').textContent = title;
+
+    if(state.key === '--' && state.bpm === '--'){
+      setStatus(
+        'done',
+        '基础排练包已生成',
+        '视频和标题已就绪。Key、BPM、拍号、和弦尚未分析；如已有 Music-AI JSON，请在“高级工具”中导入。',
+        '✓'
+      );
+    }else{
+      setStatus('done','排练包已生成','视频、标题和分析结果都已载入。','✓');
+    }
+  }catch(err){
+    setStatus('error','生成失败',err.message || '无法加载 YouTube 视频。','!');
+  }
+}
+
+function applyAnalysis(data){
+  if(!data || typeof data !== 'object') throw new Error('JSON 格式不正确');
+
+  if(data.title){
+    state.title = String(data.title);
+    $('songTitle').textContent = state.title;
+  }
+  if(data.key){
+    state.key = String(data.key);
+    $('keyValue').textContent = state.key;
+  }
+  if(data.bpm !== undefined && data.bpm !== null){
+    state.bpm = String(data.bpm);
+    $('bpmValue').textContent = state.bpm;
+  }
+  if(data.meter){
+    state.meter = String(data.meter);
+    $('meterValue').textContent = state.meter;
+  }
+
+  if(Array.isArray(data.chords)){
+    const lines = data.chords.map(item=>{
+      const start = Number(item.start ?? item.time ?? 0);
+      const chord = item.chord ?? item.label ?? '';
+      return `${formatTime(start)}  ${chord}`.trim();
+    });
+    state.originalChordText = lines.join('\n');
+    state.shift = 0;
+    $('chordText').value = state.originalChordText;
+  } else if(typeof data.chords === 'string'){
+    state.originalChordText = data.chords;
+    state.shift = 0;
+    $('chordText').value = data.chords;
+  }
+
+  updateTransposeUI();
+  $('analysisNote').textContent = 'Music-AI 分析结果已导入。现在可以直接使用 Key / BPM / 拍号 / 和弦，以及移调和 A/B 循环。';
+  setStatus('done','分析结果已导入','排练包信息已经补全。','✓');
+  showToast('分析结果已应用');
+}
+
+function parseJsonText(){
+  const text = $('jsonText').value.trim();
+  if(!text) throw new Error('请先选择 JSON 文件或粘贴 JSON');
+  return JSON.parse(text);
+}
+
+$('jsonFile').addEventListener('change', async (e)=>{
+  const file = e.target.files?.[0];
+  if(!file) return;
+  try{
+    $('jsonText').value = await file.text();
+    showToast('JSON 已读取');
+  }catch(err){
+    showToast('读取 JSON 失败');
+  }
+});
+
+$('applyJsonBtn').addEventListener('click', ()=>{
+  try{
+    applyAnalysis(parseJsonText());
+  }catch(err){
+    setStatus('error','JSON 导入失败',err.message || '请检查 JSON。','!');
+  }
+});
+
+$('clearJsonBtn').addEventListener('click', ()=>{
+  $('jsonText').value = '';
+  $('jsonFile').value = '';
+});
+
+function normalizeRoot(root){
+  return FLAT_TO_SHARP[root] || root;
+}
+
+function transposeRoot(root, semitones){
+  const norm = normalizeRoot(root);
+  const idx = NOTE_NAMES.indexOf(norm);
+  if(idx < 0) return root;
+  return NOTE_NAMES[(idx + semitones + 1200) % 12];
+}
+
+function transposeChord(chord, semitones){
+  if(!semitones) return chord;
+  return chord.replace(/\b([A-G](?:#|b)?)(?=[:/\s]|m|maj|min|sus|add|dim|aug|\d|$)/g, (m, root)=>{
+    return transposeRoot(root, semitones);
+  }).replace(/\/([A-G](?:#|b)?)/g, (m, root)=>`/${transposeRoot(root,semitones)}`);
+}
+
+function renderChordText(){
+  const source = state.originalChordText || $('chordText').value;
+  if(!state.originalChordText) state.originalChordText = source;
+  $('chordText').value = source.split('\n').map(line=>{
+    return line.replace(/\b([A-G](?:#|b)?(?:m|maj|min|sus|add|dim|aug)?\d*(?:\/[A-G](?:#|b)?)?)/g,
+      chord=>transposeChord(chord,state.shift));
+  }).join('\n');
+}
+
+function updateTransposeUI(){
+  $('shiftLabel').textContent = state.shift === 0 ? '原调' : (state.shift > 0 ? `+${state.shift}` : `${state.shift}`);
+  if(state.key && state.key !== '--'){
+    $('currentKeyLabel').textContent = transposeRoot(state.key, state.shift);
+  } else {
+    $('currentKeyLabel').textContent = '--';
+  }
+  renderChordText();
+}
+
+$('downBtn').addEventListener('click', ()=>{ state.shift--; updateTransposeUI(); });
+$('upBtn').addEventListener('click', ()=>{ state.shift++; updateTransposeUI(); });
+
+$('chordText').addEventListener('input', ()=>{
+  if(state.shift === 0) state.originalChordText = $('chordText').value;
+});
+
+function formatTime(sec){
+  if(sec === null || sec === undefined || Number.isNaN(Number(sec))) return '--:--';
+  sec = Math.max(0, Math.floor(Number(sec)));
+  const m = Math.floor(sec/60);
+  const s = sec%60;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function getCurrentTime(){
+  if(player && typeof player.getCurrentTime === 'function') return player.getCurrentTime();
+  return null;
+}
+
+$('setABtn').addEventListener('click', ()=>{
+  const t = getCurrentTime();
+  if(t === null){ showToast('请先播放视频'); return; }
+  state.loopA = t; $('loopAValue').textContent = formatTime(t);
+});
+$('setBBtn').addEventListener('click', ()=>{
+  const t = getCurrentTime();
+  if(t === null){ showToast('请先播放视频'); return; }
+  state.loopB = t; $('loopBValue').textContent = formatTime(t);
+});
+$('clearLoopBtn').addEventListener('click', ()=>{
+  state.loopA = state.loopB = null; state.looping = false;
+  $('loopAValue').textContent = '--:--'; $('loopBValue').textContent = '--:--';
+  $('toggleLoopBtn').textContent = '循环：关';
+});
+$('toggleLoopBtn').addEventListener('click', ()=>{
+  if(state.loopA === null || state.loopB === null || state.loopB <= state.loopA){
+    showToast('请先正确设置 A 和 B');
+    return;
+  }
+  state.looping = !state.looping;
+  $('toggleLoopBtn').textContent = `循环：${state.looping ? '开' : '关'}`;
+});
+
+setInterval(()=>{
+  if(!state.looping || !player || state.loopA === null || state.loopB === null) return;
+  const t = getCurrentTime();
+  if(t !== null && t >= state.loopB){
+    player.seekTo(state.loopA,true);
+    player.playVideo();
+  }
+},350);
+
+const LIB_KEY = 'worship-rehearsal-library-v2';
+
+function getLibrary(){
+  try{return JSON.parse(localStorage.getItem(LIB_KEY) || '[]')}catch(e){return []}
+}
+function setLibrary(items){ localStorage.setItem(LIB_KEY, JSON.stringify(items)); renderLibrary(); }
+
+function currentSnapshot(){
+  return {
+    id: Date.now(),
+    title: state.title,
+    youtubeUrl: $('youtubeUrl').value.trim(),
+    key: state.key,
+    bpm: state.bpm,
+    meter: state.meter,
+    chords: state.originalChordText || $('chordText').value,
+    savedAt: new Date().toISOString()
+  };
+}
+
+$('saveBtn').addEventListener('click', ()=>{
+  if(!$('youtubeUrl').value.trim() && state.title === '未命名歌曲'){
+    showToast('先生成一个排练包');
+    return;
+  }
+  const items = getLibrary();
+  items.unshift(currentSnapshot());
+  setLibrary(items.slice(0,50));
+  showToast('已保存到歌曲库');
+});
+
+function loadSnapshot(item){
+  $('youtubeUrl').value = item.youtubeUrl || '';
+  state.title = item.title || '未命名歌曲';
+  state.key = item.key || '--';
+  state.bpm = item.bpm || '--';
+  state.meter = item.meter || '--';
+  state.originalChordText = item.chords || '';
+  state.shift = 0;
+  $('songTitle').textContent = state.title;
+  $('keyValue').textContent = state.key;
+  $('bpmValue').textContent = state.bpm;
+  $('meterValue').textContent = state.meter;
+  $('chordText').value = state.originalChordText;
+  if(item.youtubeUrl){
+    state.videoId = extractVideoId(item.youtubeUrl);
+    if(state.videoId) ensurePlayer(state.videoId);
+  }
+  updateTransposeUI();
+  setStatus('done','已载入歌曲','已从本地歌曲库恢复排练包。','✓');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function renderLibrary(){
+  const box = $('libraryList');
+  const items = getLibrary();
+  if(!items.length){
+    box.innerHTML = '<div class="empty">还没有保存歌曲。生成排练包后点右上角“保存到歌曲库”。</div>';
+    return;
+  }
+  box.innerHTML = '';
+  items.forEach((item,index)=>{
+    const div = document.createElement('div');
+    div.className = 'library-item';
+    div.innerHTML = `
+      <div>
+        <strong>${escapeHtml(item.title || '未命名歌曲')}</strong>
+        <div class="muted">${escapeHtml(item.key || '--')} · ${escapeHtml(String(item.bpm || '--'))} BPM</div>
+      </div>
+      <button class="button" data-load="${index}">打开</button>`;
+    box.appendChild(div);
+  });
+  box.querySelectorAll('[data-load]').forEach(btn=>{
+    btn.addEventListener('click', ()=>loadSnapshot(items[Number(btn.dataset.load)]));
+  });
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+}
+
+$('clearLibraryBtn').addEventListener('click', ()=>{
+  if(confirm('确定清空本机歌曲库吗？')) setLibrary([]);
+});
+
+$('generateBtn').addEventListener('click', generatePack);
+
+renderLibrary();
+updateTransposeUI();

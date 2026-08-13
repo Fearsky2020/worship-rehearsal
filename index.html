@@ -3,117 +3,134 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#111827" />
+  <meta name="theme-color" content="#0b1020" />
   <title>Worship Rehearsal</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="topbar">
     <div>
-      <div class="eyebrow">WORSHIP TOOLS · V2</div>
+      <div class="eyebrow">WORSHIP TOOLS · V2.1</div>
       <h1>排练包</h1>
     </div>
     <button id="saveBtn" class="button primary">保存到歌曲库</button>
   </header>
 
   <main class="layout">
-    <section class="panel setup-panel hero-panel">
-      <div class="eyebrow">ONE LINK → REHEARSAL PACK</div>
+    <section class="panel hero-panel">
+      <div class="step">第一步</div>
       <h2>粘贴 YouTube 链接</h2>
-      <div class="url-row">
-        <input id="youtubeUrl" placeholder="https://youtu.be/..." inputmode="url" />
-        <button id="generateBtn" class="button primary">生成排练包</button>
-      </div>
-      <p class="hint">V2 会自动读取 YouTube 视频标题；Key、BPM、和弦可直接导入 Music-AI JSON。后续接本地 Music-AI 后，这一步会变成全自动。</p>
+      <p class="muted">先把歌曲链接贴进来。当前版本会加载视频和标题；Key、BPM、拍号、和弦仍需导入 Music-AI 分析结果。</p>
 
-      <div class="auto-status" aria-label="自动化状态">
-        <div><span>视频标题</span><strong id="statusTitle">等待链接</strong></div>
-        <div><span>Key / BPM</span><strong id="statusAnalysis">等待分析</strong></div>
-        <div><span>和弦</span><strong id="statusChords">等待分析</strong></div>
+      <div class="input-row">
+        <input id="youtubeUrl" type="url" placeholder="例如：https://youtu.be/..." autocomplete="off" />
+        <button id="generateBtn" class="button primary big">生成排练包</button>
+      </div>
+
+      <div id="statusCard" class="status-card idle">
+        <div class="status-icon">①</div>
+        <div>
+          <strong id="statusTitle">等待 YouTube 链接</strong>
+          <div id="statusText">粘贴链接后点击“生成排练包”。</div>
+        </div>
       </div>
     </section>
 
-    <section class="panel player-panel">
-      <div id="playerWrap" class="player-wrap">
+    <section class="panel now-panel">
+      <div class="section-kicker">NOW REHEARSING</div>
+      <h2 id="songTitle">未命名歌曲</h2>
+
+      <div class="meta-row">
+        <span>Key <strong id="keyValue">--</strong></span>
+        <span>BPM <strong id="bpmValue">--</strong></span>
+        <span>拍号 <strong id="meterValue">--</strong></span>
+      </div>
+
+      <div id="playerWrap" class="player-placeholder">
+        <div id="playerMessage">粘贴链接后点“生成排练包”</div>
         <div id="player"></div>
-        <div id="emptyPlayer" class="empty-player">粘贴链接后点“生成排练包”</div>
       </div>
 
-      <div class="song-heading">
-        <div>
-          <div class="eyebrow">NOW REHEARSING</div>
-          <h2 id="chartTitle">未命名歌曲</h2>
-        </div>
-        <div class="meta-badges">
-          <span>Key <strong id="metaKey">--</strong></span>
-          <span>BPM <strong id="metaBpm">--</strong></span>
-          <span id="meterBadge">--</span>
-        </div>
+      <div class="analysis-note">
+        <strong>当前版本说明</strong>
+        <p id="analysisNote">YouTube 视频可直接加载；Key、BPM、拍号、和弦要通过下方“高级工具”导入 Music-AI JSON。V3 才会把这一步自动化。</p>
       </div>
 
-      <div class="loop-row">
-        <button id="setA" class="button small">设 A</button>
-        <button id="setB" class="button small">设 B</button>
-        <button id="toggleLoop" class="button small">循环：关</button>
-        <button id="clearLoop" class="button small ghost">清除</button>
+      <div class="loop-controls">
+        <button id="setABtn" class="button">设 A</button>
+        <button id="setBBtn" class="button">设 B</button>
+        <button id="toggleLoopBtn" class="button">循环：关</button>
+        <button id="clearLoopBtn" class="button">清除</button>
       </div>
-      <div class="loop-display">
-        <span>A <strong id="aTime">--:--</strong></span>
-        <span>B <strong id="bTime">--:--</strong></span>
+      <div class="loop-time">
+        <span>A <strong id="loopAValue">--:--</strong></span>
+        <span>B <strong id="loopBValue">--:--</strong></span>
       </div>
     </section>
 
-    <section class="panel analysis-panel">
-      <div class="section-header">
-        <div>
-          <div class="eyebrow">MUSIC-AI BRIDGE</div>
-          <h2>导入分析结果</h2>
-        </div>
-        <label class="button ghost file-button">选择 JSON<input id="analysisFile" type="file" accept="application/json,.json" /></label>
-      </div>
-      <p class="hint">支持常见字段：<code>title</code>、<code>key</code>、<code>bpm</code>、<code>meter</code>、<code>chords</code>。如果 chords 是时间轴数组，会自动生成排练和弦表。</p>
-      <textarea id="analysisJson" spellcheck="false" placeholder='也可以直接粘贴 JSON，例如：\n{\n  "key":"D",\n  "bpm":125,\n  "meter":"4/4",\n  "chords":[{"start":0.74,"chord":"D"},{"start":1.14,"chord":"A"}]\n}'></textarea>
-      <div class="quick-actions">
-        <button id="applyAnalysis" class="button">应用分析</button>
-        <button id="clearAnalysis" class="button ghost">清空</button>
-      </div>
-    </section>
+    <section class="panel chord-panel">
+      <div class="section-kicker">CHORD CHART</div>
+      <h2>和弦谱</h2>
 
-    <section class="panel chart-panel">
-      <div class="chart-header">
-        <div>
-          <div class="eyebrow">CHORD CHART</div>
-          <h2>和弦谱</h2>
+      <div class="transpose-row">
+        <button id="downBtn" class="button transpose">−1</button>
+        <div class="transpose-center">
+          <strong id="shiftLabel">原调</strong>
+          <small id="currentKeyLabel">--</small>
         </div>
-        <div class="transpose">
-          <button id="down" class="button small">−1</button>
-          <div class="key-badge"><span id="displayKey">--</span><small id="shiftLabel">原调</small></div>
-          <button id="up" class="button small">+1</button>
-        </div>
+        <button id="upBtn" class="button transpose">+1</button>
       </div>
 
-      <textarea id="chords" spellcheck="false" placeholder="导入 Music-AI 结果后，这里会自动生成和弦时间轴；也可以手工修正。"></textarea>
-
-      <div class="quick-actions">
-        <button id="resetTranspose" class="button ghost">恢复原调</button>
-        <button id="copyChords" class="button ghost">复制当前和弦谱</button>
-      </div>
+      <textarea id="chordText" placeholder="导入 Music-AI 分析后，这里会自动出现和弦时间轴。也可以临时手动输入和弦。"></textarea>
     </section>
 
     <section class="panel library-panel">
-      <div class="section-header">
-        <div>
-          <div class="eyebrow">LOCAL LIBRARY</div>
-          <h2>我的歌曲库</h2>
+      <div class="section-kicker">LOCAL LIBRARY</div>
+      <h2>我的歌曲库</h2>
+      <div id="libraryList" class="library-list"></div>
+      <button id="clearLibraryBtn" class="button subtle">清空歌曲库</button>
+    </section>
+
+    <section class="panel advanced-panel">
+      <details>
+        <summary>
+          <span>
+            <span class="section-kicker">ADVANCED</span>
+            <strong>高级工具 · 导入 Music-AI 分析结果</strong>
+          </span>
+          <span class="chevron">⌄</span>
+        </summary>
+
+        <div class="advanced-content">
+          <p class="muted">正常排练时不用碰这里。只有当 Music-AI 已经输出 JSON 时，再导入。</p>
+
+          <label class="file-box">
+            <span>选择 JSON 文件</span>
+            <input id="jsonFile" type="file" accept=".json,application/json" />
+          </label>
+
+          <textarea id="jsonText" class="json-box" placeholder='也可以直接粘贴 JSON，例如：
+{
+  "title": "歌曲名",
+  "key": "D",
+  "bpm": 125,
+  "meter": "4/4",
+  "chords": [
+    {"start": 0.74, "chord": "D"}
+  ]
+}'></textarea>
+
+          <div class="button-row">
+            <button id="applyJsonBtn" class="button">应用分析</button>
+            <button id="clearJsonBtn" class="button subtle">清空</button>
+          </div>
         </div>
-        <button id="clearLibrary" class="button ghost small">清空歌曲库</button>
-      </div>
-      <div id="library" class="library-list"></div>
-      <p id="emptyLibrary" class="hint">还没有保存歌曲。生成排练包后点右上角“保存到歌曲库”。</p>
+      </details>
     </section>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
   <script src="https://www.youtube.com/iframe_api"></script>
   <script src="app.js"></script>
 </body>

@@ -1,38 +1,30 @@
-# Worship Rehearsal
+# Worship Rehearsal V2.1
 
-Worship Rehearsal 是一个面向敬拜团队的轻量排练网页。
+V2.1 是一次纯产品流程重构，不新增后台分析能力。
 
-## V2
+## 这版解决的问题
+- 首页只突出一个主动作：粘贴 YouTube 链接 → 生成排练包
+- 明确告诉用户：当前只会加载视频和标题
+- Key / BPM / 拍号 / 和弦不会伪装成“正在后台分析”
+- Music-AI JSON 导入被收进“高级工具”，默认折叠
+- 排练区、A/B Loop、移调、歌曲库继续保留
+- 手机端重新整理布局和按钮层级
 
-V2 把工作流改成“一个链接开始”：
+## 当前真实能力
+1. 粘贴 YouTube 链接
+2. 加载 YouTube 官方播放器
+3. 尝试通过 YouTube oEmbed 获取标题
+4. 导入 Music-AI JSON：
+   - title
+   - key
+   - bpm
+   - meter
+   - chords
+5. 生成和弦时间轴
+6. 一键移调
+7. A/B Loop
+8. 本地歌曲库
 
-- 粘贴 YouTube 链接并载入官方播放器
-- 自动读取视频标题（通过 YouTube IFrame Player）
-- 导入 Music-AI JSON，自动填入 Key / BPM / 拍号 / 和弦时间轴
-- 和弦谱一键升降调
-- A/B 段落循环
-- 本机浏览器歌曲库，可保存并重新打开多首歌曲
-- 手机 / 平板 / 桌面响应式
-
-## Music-AI JSON
-
-推荐字段示例：
-
-```json
-{
-  "title": "示例歌曲",
-  "key": "D",
-  "bpm": 125,
-  "meter": "4/4",
-  "chords": [
-    {"start": 0.74, "chord": "D"},
-    {"start": 1.14, "chord": "A"}
-  ]
-}
-```
-
-也兼容部分常见别名，如 `tempo`、`time_signature`、`chord_timeline`、`segments`。
-
-## 当前边界
-
-GitHub Pages 本身不能在后台下载 YouTube 音频或运行 Music-AI。V2 先完成前端和 Music-AI 数据桥接；下一阶段再由本地 Music-AI worker 自动分析并把 JSON 结果喂给排练包。
+## 未来 V3
+V3 才会接 Music-AI Worker，实现：
+YouTube 链接 → 后台分析 → 自动回填 Key/BPM/拍号/和弦。
