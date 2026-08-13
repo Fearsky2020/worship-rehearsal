@@ -10,29 +10,24 @@
 <body>
 <header class="topbar">
   <div>
-    <div class="eyebrow">WORSHIP TOOLS · V2.2</div>
+    <div class="eyebrow">WORSHIP TOOLS · V2.3</div>
     <h1>排练包</h1>
   </div>
-  <button id="saveBtn" class="button primary">保存</button>
+  <button id="saveBtn" class="button primary">保存歌曲</button>
 </header>
 
 <main class="layout">
   <section class="panel hero">
     <div class="step">第一步</div>
     <h2>粘贴 YouTube 链接</h2>
-    <p class="muted">系统先识别歌曲，再优先寻找现成谱。自动听写作为后备方案，不再默认当主来源。</p>
-
+    <p class="muted">先识别歌曲，再优先找现成谱。找到合适版本后点“采用”，进入可编辑排练版。</p>
     <div class="input-row">
       <input id="youtubeUrl" type="url" placeholder="https://youtu.be/..." autocomplete="off">
       <button id="startBtn" class="button primary big">识别并找谱</button>
     </div>
-
     <div id="statusCard" class="status-card idle">
       <div class="status-icon">①</div>
-      <div>
-        <strong id="statusTitle">等待 YouTube 链接</strong>
-        <div id="statusText">粘贴歌曲链接，然后点“识别并找谱”。</div>
-      </div>
+      <div><strong id="statusTitle">等待 YouTube 链接</strong><div id="statusText">粘贴歌曲链接，然后点“识别并找谱”。</div></div>
     </div>
   </section>
 
@@ -46,48 +41,59 @@
     </div>
   </section>
 
-  <section class="panel" id="searchPanel">
+  <section class="panel">
     <div class="section-kicker">FIND CHARTS</div>
     <h2>现成谱候选</h2>
-    <p class="muted">V2.2 不评价出处，只记录来源。点击来源会直接搜索当前识别出的歌曲。</p>
-
-    <div id="searchGrid" class="search-grid">
-      <div class="empty">先识别一首歌曲。</div>
-    </div>
+    <p class="muted">只记录来源，不评价出处。找到谱后可记录为候选，再点“采用”。</p>
+    <div id="searchGrid" class="search-grid"><div class="empty">先识别一首歌曲。</div></div>
 
     <div class="candidate-editor">
       <h3>记录一个找到的谱</h3>
       <div class="candidate-row">
-        <input id="candidateSource" placeholder="来源，例如 PraiseCharts / Chordify / 网页">
+        <input id="candidateSource" placeholder="来源，例如 Chordify / 网页">
         <input id="candidateKey" placeholder="Key，例如 D">
       </div>
       <input id="candidateUrl" placeholder="谱子页面链接">
-      <textarea id="candidateChords" placeholder="可选：把你找到的和弦内容贴这里。后续 Worker 接入后，这一步会自动完成。"></textarea>
+      <textarea id="candidateChords" placeholder="把找到的和弦谱贴在这里。"></textarea>
       <button id="addCandidateBtn" class="button">加入候选</button>
     </div>
-
     <div id="candidateList" class="candidate-list"></div>
   </section>
 
-  <section class="panel">
-    <div class="section-kicker">CURRENT CHART</div>
-    <h2>当前采用谱</h2>
-    <div class="adopted-meta">
-      <span>来源 <strong id="adoptedSource">尚未选择</strong></span>
-      <span>Key <strong id="keyValue">--</strong></span>
-      <span>BPM <strong id="bpmValue">--</strong></span>
-      <span>拍号 <strong id="meterValue">--</strong></span>
+  <section class="panel editor-panel" id="editorPanel">
+    <div class="section-kicker">REHEARSAL EDITOR</div>
+    <div class="editor-title-row">
+      <div>
+        <h2>我的排练版</h2>
+        <p class="muted">原谱会保留。你可以自由改这一份，再移调、保存、导出 PDF。</p>
+      </div>
+      <div class="source-badge">来源：<strong id="editorSource">尚未选择</strong></div>
+    </div>
+
+    <div class="editor-meta-grid">
+      <label>歌名<input id="editTitle" placeholder="歌名"></label>
+      <label>Key<input id="editKey" placeholder="D"></label>
+      <label>BPM<input id="editBpm" placeholder="125"></label>
+      <label>拍号<input id="editMeter" placeholder="4/4"></label>
     </div>
 
     <div class="transpose-row">
-      <button id="downBtn" class="button">−1</button>
-      <div class="transpose-center">
-        <strong id="shiftLabel">原调</strong>
-        <small id="currentKeyLabel">--</small>
-      </div>
-      <button id="upBtn" class="button">+1</button>
+      <button id="downBtn" class="button transpose">−1 半音</button>
+      <div class="transpose-center"><strong id="shiftLabel">原调</strong><small id="currentKeyLabel">--</small></div>
+      <button id="upBtn" class="button transpose">+1 半音</button>
     </div>
-    <textarea id="chordText" placeholder="选择候选谱后显示在这里。也可以临时手动粘贴。"></textarea>
+
+    <label class="chart-label">排练谱内容
+      <textarea id="chordText" class="chart-editor" placeholder="采用候选谱后，可在这里自由编辑。"></textarea>
+    </label>
+
+    <div class="editor-actions">
+      <button id="restoreBtn" class="button subtle">恢复原谱</button>
+      <button id="saveVersionBtn" class="button">保存排练版</button>
+      <button id="copyBtn" class="button">复制文本</button>
+      <button id="pdfBtn" class="button primary">下载 PDF</button>
+    </div>
+    <div id="editState" class="edit-state">尚未采用候选谱。</div>
   </section>
 
   <section class="panel">
@@ -99,10 +105,7 @@
       <button id="toggleLoopBtn" class="button">循环：关</button>
       <button id="clearLoopBtn" class="button">清除</button>
     </div>
-    <div class="loop-time">
-      <span>A <strong id="loopAValue">--:--</strong></span>
-      <span>B <strong id="loopBValue">--:--</strong></span>
-    </div>
+    <div class="loop-time"><span>A <strong id="loopAValue">--:--</strong></span><span>B <strong id="loopBValue">--:--</strong></span></div>
   </section>
 
   <section class="panel">
@@ -114,28 +117,35 @@
 
   <section class="panel advanced">
     <details>
-      <summary>
-        <span><span class="section-kicker">FALLBACK</span><strong>Music-AI · 后备分析</strong></span>
-        <span class="chevron">⌄</span>
-      </summary>
+      <summary><span><span class="section-kicker">FALLBACK</span><strong>Music-AI · 后备分析</strong></span><span class="chevron">⌄</span></summary>
       <div class="advanced-content">
-        <p class="muted">只有找不到可用现成谱，或需要拿 AI 结果做比对时再用这里。</p>
-        <label class="file-box">
-          <span>选择 Music-AI JSON</span>
-          <input id="jsonFile" type="file" accept=".json,application/json">
-        </label>
+        <p class="muted">找不到可用现成谱，或需要用 AI 做比对时再用。</p>
+        <label class="file-box"><span>选择 Music-AI JSON</span><input id="jsonFile" type="file" accept=".json,application/json"></label>
         <textarea id="jsonText" class="json-box" placeholder='{"key":"D","bpm":125,"meter":"4/4","chords":[{"start":0.74,"chord":"D"}]}'></textarea>
-        <div class="button-row">
-          <button id="applyJsonBtn" class="button">加入 Music-AI 候选</button>
-          <button id="clearJsonBtn" class="button subtle">清空</button>
-        </div>
+        <div class="button-row"><button id="applyJsonBtn" class="button">加入 Music-AI 候选</button><button id="clearJsonBtn" class="button subtle">清空</button></div>
       </div>
     </details>
   </section>
 </main>
 
+<section id="pdfSheet" class="pdf-sheet" aria-hidden="true">
+  <div class="pdf-head">
+    <div class="pdf-kicker">WORSHIP REHEARSAL</div>
+    <h1 id="pdfTitle">歌曲</h1>
+    <div class="pdf-meta">
+      <span>Key <strong id="pdfKey">--</strong></span>
+      <span>BPM <strong id="pdfBpm">--</strong></span>
+      <span>拍号 <strong id="pdfMeter">--</strong></span>
+      <span>来源 <strong id="pdfSource">--</strong></span>
+    </div>
+  </div>
+  <pre id="pdfChart"></pre>
+</section>
+
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <script src="https://www.youtube.com/iframe_api"></script>
+<script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://unpkg.com/jspdf@4.1.0/dist/jspdf.umd.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
