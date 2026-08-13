@@ -457,8 +457,9 @@ renderCandidates();renderLib();renderSearch();updateShiftUI();
 
 
 // ===== V3.0 unified candidate/search layer =====
+const DEFAULT_WORKER_ENDPOINT = 'https://worship-search-worker.emsitao.workers.dev';
 const WORKER_CONFIG = {
-  endpoint: localStorage.getItem('worship-search-worker-endpoint') || ''
+  endpoint: localStorage.getItem('worship-search-worker-endpoint') || DEFAULT_WORKER_ENDPOINT
 };
 
 function resultBoxFor(type){
@@ -783,16 +784,17 @@ $('addGeneratedDraftBtn').onclick=()=>{
   if(!input || !statusEl) return;
 
   const saved=localStorage.getItem('worship-search-worker-endpoint') || '';
-  input.value=saved;
-  statusEl.textContent=saved ? `已配置：${saved}` : '尚未配置。';
+  input.value=saved || DEFAULT_WORKER_ENDPOINT;
+  statusEl.textContent=saved ? `已配置自定义地址：${saved}` : `使用默认地址：${DEFAULT_WORKER_ENDPOINT}`;
 
   $('saveWorkerEndpointBtn').onclick=()=>{
     const value=input.value.trim().replace(/\/+$/,'');
     if(!value){
       localStorage.removeItem('worship-search-worker-endpoint');
-      WORKER_CONFIG.endpoint='';
-      statusEl.textContent='已清除 Worker 地址。';
-      toast('已清除 Worker 地址');
+      WORKER_CONFIG.endpoint=DEFAULT_WORKER_ENDPOINT;
+      input.value=DEFAULT_WORKER_ENDPOINT;
+      statusEl.textContent=`使用默认地址：${DEFAULT_WORKER_ENDPOINT}`;
+      toast('已恢复默认 Worker 地址');
       return;
     }
     localStorage.setItem('worship-search-worker-endpoint',value);
