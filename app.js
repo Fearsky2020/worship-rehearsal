@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 const NOTES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const FLATS={'Db':'C#','Eb':'D#','Gb':'F#','Ab':'G#','Bb':'A#'};
 let player=null, toastTimer=null;
-const state={title:'尚未识别歌曲',videoId:null,youtubeUrl:'',candidates:[],adopted:null,original:null,shift:0,loopA:null,loopB:null,looping:false};
+const state={title:'尚未识别歌曲',videoId:null,youtubeUrl:'',candidates:[],adopted:null,original:null,shift:0,loopA:null,loopB:null,looping:false,scoreType:'chord'};
 
 function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),1800)}
 function status(type,title,text,icon='•'){const c=$('statusCard');c.className=`status-card ${type}`;c.querySelector('.status-icon').textContent=icon;$('statusTitle').textContent=title;$('statusText').textContent=text}
@@ -14,26 +14,63 @@ window.onYouTubeIframeAPIReady=()=>{};
 function ensurePlayer(id){$('playerMessage').style.display='none';if(player&&typeof player.loadVideoById==='function'){player.loadVideoById(id);return}player=new YT.Player('player',{videoId:id,playerVars:{playsinline:1,rel:0}})}
 async function getTitle(id){const watch=`https://www.youtube.com/watch?v=${id}`;const res=await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(watch)}&format=json`);if(!res.ok)throw new Error(`YouTube 标题读取失败 (${res.status})`);const d=await res.json();return d.title||'YouTube 歌曲'}
 
-function searchSources(title){const q=encodeURIComponent(title),qc=encodeURIComponent(`${title} chords`);return[
-{name:'Google · 全网',url:`https://www.google.com/search?q=${qc}`,note:'搜索公开网页中的和弦谱'},
-{name:'PraiseCharts',url:`https://www.google.com/search?q=${encodeURIComponent('site:praisecharts.com '+title)}`,note:'搜索 PraiseCharts'},
-{name:'Chordify',url:`https://chordify.net/search/${q}`,note:'搜索 Chordify'},
-{name:'Ultimate Guitar',url:`https://www.google.com/search?q=${encodeURIComponent('site:tabs.ultimate-guitar.com '+title+' chords')}`,note:'搜索 Ultimate Guitar'},
-{name:'YouTube',url:`https://www.youtube.com/results?search_query=${encodeURIComponent(title+' chords')}`,note:'搜索教学/和弦版本'},
-{name:'其他网页',url:`https://www.google.com/search?q=${encodeURIComponent('"'+title+'" chord chart')}`,note:'按歌名精确搜索'}]}
-function renderSearch(){const g=$('searchGrid');if(!state.title||state.title==='尚未识别歌曲'){g.innerHTML='<div class="empty">先识别一首歌曲。</div>';return}g.innerHTML=searchSources(state.title).map(s=>`<a class="search-card" href="${s.url}" target="_blank" rel="noopener"><strong>${escapeHtml(s.name)}</strong><small>${escapeHtml(s.note)}</small></a>`).join('')}
+const SCORE_TYPES={
+ chord:{label:'和弦谱',icon:'🎸'},
+ staff:{label:'五线谱',icon:'🎼'},
+ numbered:{label:'简谱',icon:'123'}
+};
+
+function searchSources(title,type){
+ const google=q=>`https://www.google.com/search?q=${encodeURIComponent(q)}`;
+ if(type==='staff') return [
+  {name:'Google · 五线谱',url:google(`${title} 五线谱`),query:`${title} 五线谱`},
+  {name:'Google · Sheet Music',url:google(`${title} sheet music`),query:`${title} sheet music`},
+  {name:'Google · Score',url:google(`${title} score`),query:`${title} score`},
+  {name:'PraiseCharts',url:google(`site:praisecharts.com ${title} sheet music`),query:`site:praisecharts.com ${title}`},
+  {name:'MuseScore 搜索',url:google(`site:musescore.com ${title}`),query:`site:musescore.com ${title}`},
+  {name:'图片搜索',url:`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(title+' 五线谱')}`,query:`${title} 五线谱 图片`}
+ ];
+ if(type==='numbered') return [
+  {name:'Google · 简谱',url:google(`${title} 简谱`),query:`${title} 简谱`},
+  {name:'Google · 歌谱',url:google(`${title} 歌谱`),query:`${title} 歌谱`},
+  {name:'Google · 数字谱',url:google(`${title} 数字谱`),query:`${title} 数字谱`},
+  {name:'赞美诗歌类网页',url:google(`${title} 敬拜 简谱`),query:`${title} 敬拜 简谱`},
+  {name:'图片搜索',url:`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(title+' 简谱')}`,query:`${title} 简谱 图片`},
+  {name:'YouTube 教学',url:`https://www.youtube.com/results?search_query=${encodeURIComponent(title+' 简谱')}`,query:`${title} 简谱`}
+ ];
+ return [
+  {name:'Google · 和弦谱',url:google(`${title} 和弦谱`),query:`${title} 和弦谱`},
+  {name:'Google · Chords',url:google(`${title} chords`),query:`${title} chords`},
+  {name:'PraiseCharts',url:google(`site:praisecharts.com ${title}`),query:`site:praisecharts.com ${title}`},
+  {name:'Chordify',url:`https://chordify.net/search/${encodeURIComponent(title)}`,query:title},
+  {name:'Ultimate Guitar',url:google(`site:tabs.ultimate-guitar.com ${title} chords`),query:`${title} chords`},
+  {name:'YouTube 教学',url:`https://www.youtube.com/results?search_query=${encodeURIComponent(title+' chords')}`,query:`${title} chords`}
+ ];
+}
+function renderSearch(){
+ const g=$('searchGrid');
+ document.querySelectorAll('[data-score-tab]').forEach(b=>b.classList.toggle('active',b.dataset.scoreTab===state.scoreType));
+ if(!state.title||state.title==='尚未识别歌曲'){g.innerHTML='<div class="empty">先识别一首歌曲。</div>';return}
+ const meta=SCORE_TYPES[state.scoreType];
+ g.innerHTML=searchSources(state.title,state.scoreType).map(s=>`<a class="search-card" href="${s.url}" target="_blank" rel="noopener"><strong>${meta.icon} ${escapeHtml(s.name)}</strong><small>搜索 ${escapeHtml(meta.label)}</small><div class="search-query">${escapeHtml(s.query)}</div></a>`).join('');
+}
+document.querySelectorAll('[data-score-tab]').forEach(btn=>btn.addEventListener('click',()=>{
+ state.scoreType=btn.dataset.scoreTab;
+ $('candidateType').value=state.scoreType;
+ renderSearch();
+}));
 
 async function start(){const url=$('youtubeUrl').value.trim(),id=videoId(url);if(!id){status('error','链接无效','请粘贴有效 YouTube 链接。','!');return}state.youtubeUrl=url;state.videoId=id;status('idle','正在识别歌曲','读取 YouTube 标题并准备搜谱入口……','↻');try{ensurePlayer(id);state.title=await getTitle(id);$('songTitle').textContent=state.title;$('sourceHint').textContent='已识别歌曲。下面已经生成多个搜谱入口。';renderSearch();status('done','已准备搜谱','优先从现成谱中选一个；找不到再用 Music-AI。','✓')}catch(e){status('error','识别失败',e.message||'无法读取歌曲。','!')}}
 
 function addCandidate(c){c.id=Date.now()+Math.random();state.candidates.push(c);renderCandidates();toast(`已加入候选：${c.source}`)}
-function renderCandidates(){const box=$('candidateList');if(!state.candidates.length){box.innerHTML='<div class="empty">还没有候选谱。</div>';return}box.innerHTML=state.candidates.map((c,i)=>`<div class="candidate"><div class="candidate-head"><div><strong>${escapeHtml(c.source)}</strong><div class="candidate-meta">Key ${escapeHtml(c.key||'--')} · ${c.kind==='ai'?'Music-AI 分析':'现成谱'}</div></div><button class="button" data-adopt="${i}">采用</button></div>${c.url?`<div class="candidate-meta"><a href="${escapeHtml(c.url)}" target="_blank" rel="noopener">打开来源</a></div>`:''}<div class="candidate-actions"><button class="button subtle" data-remove="${i}">移除</button></div></div>`).join('');box.querySelectorAll('[data-adopt]').forEach(b=>b.onclick=()=>adopt(Number(b.dataset.adopt)));box.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{state.candidates.splice(Number(b.dataset.remove),1);renderCandidates()})}
+function renderCandidates(){const box=$('candidateList');if(!state.candidates.length){box.innerHTML='<div class="empty">还没有候选谱。</div>';return}box.innerHTML=state.candidates.map((c,i)=>{const type=SCORE_TYPES[c.scoreType||'chord']||SCORE_TYPES.chord;return `<div class="candidate"><div class="candidate-head"><div><strong><span class="type-badge">${type.label}</span>${escapeHtml(c.source)}</strong><div class="candidate-meta">Key ${escapeHtml(c.key||'--')} · ${c.kind==='ai'?'Music-AI 分析':'现成谱'}</div></div><button class="button" data-adopt="${i}">采用</button></div>${c.url?`<div class="candidate-meta"><a href="${escapeHtml(c.url)}" target="_blank" rel="noopener">打开来源</a></div>`:''}<div class="candidate-actions"><button class="button subtle" data-remove="${i}">移除</button></div></div>`}).join('');box.querySelectorAll('[data-adopt]').forEach(b=>b.onclick=()=>adopt(Number(b.dataset.adopt)));box.querySelectorAll('[data-remove]').forEach(b=>b.onclick=()=>{state.candidates.splice(Number(b.dataset.remove),1);renderCandidates()})}
 
 function adopt(i){
  const c=state.candidates[i];if(!c)return;
  state.adopted={...c};
- state.original={title:state.title,source:c.source,key:c.key||'',bpm:c.bpm||'',meter:c.meter||'',chords:c.chords||'',url:c.url||''};
+ state.original={title:state.title,source:c.source,scoreType:c.scoreType||'chord',key:c.key||'',bpm:c.bpm||'',meter:c.meter||'',chords:c.chords||'',url:c.url||''};
  state.shift=0;
- $('editorSource').textContent=c.source;
+ $('editorSource').textContent=`${(SCORE_TYPES[c.scoreType||'chord']||SCORE_TYPES.chord).label} · ${c.source}`;
  $('editTitle').value=state.title||'';
  $('editKey').value=c.key||'';
  $('editBpm').value=c.bpm||'';
@@ -45,11 +82,11 @@ function adopt(i){
  toast(`已采用：${c.source}`);
 }
 
-$('addCandidateBtn').onclick=()=>{const source=$('candidateSource').value.trim(),url=$('candidateUrl').value.trim(),key=$('candidateKey').value.trim(),chords=$('candidateChords').value.trim();if(!source){toast('请填写来源');return}addCandidate({source,url,key,chords,kind:'chart'});$('candidateSource').value='';$('candidateUrl').value='';$('candidateKey').value='';$('candidateChords').value=''};
+$('addCandidateBtn').onclick=()=>{const scoreType=$('candidateType').value,source=$('candidateSource').value.trim(),url=$('candidateUrl').value.trim(),key=$('candidateKey').value.trim(),chords=$('candidateChords').value.trim();if(!source){toast('请填写来源');return}addCandidate({scoreType,source,url,key,chords,kind:'chart'});$('candidateSource').value='';$('candidateUrl').value='';$('candidateKey').value='';$('candidateChords').value=''};
 
 $('jsonFile').onchange=async e=>{const f=e.target.files?.[0];if(f)$('jsonText').value=await f.text()};
 $('clearJsonBtn').onclick=()=>{$('jsonText').value='';$('jsonFile').value=''};
-$('applyJsonBtn').onclick=()=>{try{const d=JSON.parse($('jsonText').value.trim());let chords='';if(Array.isArray(d.chords))chords=d.chords.map(x=>`${fmt(x.start??x.time??0)}  ${x.chord??x.label??''}`).join('\n');else if(typeof d.chords==='string')chords=d.chords;addCandidate({source:'Music-AI',url:'',key:d.key||'',bpm:d.bpm||'',meter:d.meter||'',chords,kind:'ai'})}catch(e){toast('JSON 格式不正确')}};
+$('applyJsonBtn').onclick=()=>{try{const d=JSON.parse($('jsonText').value.trim());let chords='';if(Array.isArray(d.chords))chords=d.chords.map(x=>`${fmt(x.start??x.time??0)}  ${x.chord??x.label??''}`).join('\n');else if(typeof d.chords==='string')chords=d.chords;addCandidate({scoreType:'chord',source:'Music-AI',url:'',key:d.key||'',bpm:d.bpm||'',meter:d.meter||'',chords,kind:'ai'})}catch(e){toast('JSON 格式不正确')}};
 
 function norm(n){return FLATS[n]||n}
 function trRoot(root,s){const i=NOTES.indexOf(norm(root));return i<0?root:NOTES[(i+s+1200)%12]}
@@ -89,7 +126,7 @@ $('restoreBtn').onclick=()=>{
 
 function rehearsalVersion(){return{
  title:$('editTitle').value.trim()||state.title||'未命名歌曲',
- source:state.original?.source||state.adopted?.source||'未标注',
+ source:`${(SCORE_TYPES[state.original?.scoreType||state.adopted?.scoreType||'chord']||SCORE_TYPES.chord).label} · ${state.original?.source||state.adopted?.source||'未标注'}`,
  key:$('editKey').value.trim(),bpm:$('editBpm').value.trim(),meter:$('editMeter').value.trim(),
  chords:$('chordText').value,shift:state.shift
 }}

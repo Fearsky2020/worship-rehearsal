@@ -22,3 +22,12 @@ details summary{list-style:none;cursor:pointer;display:flex;justify-content:spac
 .pdf-sheet{position:fixed;left:-20000px;top:0;width:794px;min-height:1123px;background:white;color:#111;padding:54px 58px;font-family:"PingFang SC","Microsoft YaHei",Arial,sans-serif}.pdf-kicker{font-size:11px;letter-spacing:.16em;font-weight:800;color:#666}.pdf-head h1{font-size:30px;margin:7px 0 12px}.pdf-meta{display:flex;gap:16px;flex-wrap:wrap;border-bottom:1px solid #ccc;padding-bottom:14px;font-size:13px}.pdf-sheet pre{white-space:pre-wrap;word-break:break-word;font-family:"SFMono-Regular",Consolas,"Microsoft YaHei",monospace;font-size:14px;line-height:1.6;margin-top:22px}
 @media(max-width:720px){.topbar{padding:17px}.layout{padding:13px}.panel{padding:18px;border-radius:20px}.input-row,.search-grid{grid-template-columns:1fr}.candidate-row{grid-template-columns:1fr}.editor-title-row{display:block}.source-badge{display:inline-block;margin-top:12px}.editor-meta-grid{grid-template-columns:1fr 1fr}.chart-editor{min-height:360px}.transpose-row{grid-template-columns:1fr 1.1fr 1fr}.button.big{width:100%}h1{font-size:31px}h2{font-size:24px}}
 @media(max-width:480px){.editor-meta-grid{grid-template-columns:1fr 1fr}.editor-actions .button,.loop-controls .button{flex:1 1 42%}}
+
+.score-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:18px 0 4px}
+.score-tab{border:1px solid #35445f;background:#0b1423;color:#d8dfeb;border-radius:14px;padding:12px 10px;font-weight:850;font-size:15px;cursor:pointer}
+.score-tab.active{background:#2a1d08;border-color:var(--accent);color:#ffd98f}
+.candidate-row.three{grid-template-columns:170px 1fr 150px}
+select{width:100%;background:#09111f;border:1px solid #31405e;color:#fff;border-radius:16px;padding:15px 17px;font-size:16px;outline:none;margin-top:10px}
+.type-badge{display:inline-block;padding:3px 8px;border-radius:999px;background:#17233a;border:1px solid #344563;color:#dce5f5;font-size:12px;font-weight:800;margin-right:6px}
+.search-query{margin-top:6px;color:#77849d;font-size:12px}
+@media(max-width:720px){.candidate-row.three{grid-template-columns:1fr}.score-tabs{grid-template-columns:1fr 1fr 1fr}.score-tab{font-size:13px;padding:11px 5px}}

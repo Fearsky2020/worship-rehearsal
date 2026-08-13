@@ -10,7 +10,7 @@
 <body>
 <header class="topbar">
   <div>
-    <div class="eyebrow">WORSHIP TOOLS · V2.3</div>
+    <div class="eyebrow">WORSHIP TOOLS · V2.4</div>
     <h1>排练包</h1>
   </div>
   <button id="saveBtn" class="button primary">保存歌曲</button>
@@ -43,18 +43,30 @@
 
   <section class="panel">
     <div class="section-kicker">FIND CHARTS</div>
-    <h2>现成谱候选</h2>
-    <p class="muted">只记录来源，不评价出处。找到谱后可记录为候选，再点“采用”。</p>
+    <h2>找现成谱</h2>
+    <p class="muted">按谱型分别搜索：和弦谱、五线谱、简谱。只标注来源和谱型，不评价出处。</p>
+
+    <div class="score-tabs" role="tablist" aria-label="谱型">
+      <button class="score-tab active" data-score-tab="chord">🎸 和弦谱</button>
+      <button class="score-tab" data-score-tab="staff">🎼 五线谱</button>
+      <button class="score-tab" data-score-tab="numbered">123 简谱</button>
+    </div>
+
     <div id="searchGrid" class="search-grid"><div class="empty">先识别一首歌曲。</div></div>
 
     <div class="candidate-editor">
       <h3>记录一个找到的谱</h3>
-      <div class="candidate-row">
-        <input id="candidateSource" placeholder="来源，例如 Chordify / 网页">
+      <div class="candidate-row three">
+        <select id="candidateType" aria-label="谱型">
+          <option value="chord">和弦谱</option>
+          <option value="staff">五线谱</option>
+          <option value="numbered">简谱</option>
+        </select>
+        <input id="candidateSource" placeholder="来源，例如网页 / Chordify">
         <input id="candidateKey" placeholder="Key，例如 D">
       </div>
       <input id="candidateUrl" placeholder="谱子页面链接">
-      <textarea id="candidateChords" placeholder="把找到的和弦谱贴在这里。"></textarea>
+      <textarea id="candidateChords" placeholder="可选：粘贴可编辑的谱面文字/和弦内容。五线谱或图片谱暂时可只保存来源链接。"></textarea>
       <button id="addCandidateBtn" class="button">加入候选</button>
     </div>
     <div id="candidateList" class="candidate-list"></div>
