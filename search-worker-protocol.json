@@ -1,16 +1,48 @@
 {
-  "schemaVersion": "1.4",
+  "schemaVersion": "1.5",
   "search": {
+    "method": "POST",
     "path": "/search",
     "requestFields": [
       "title",
       "requestedTypes",
       "excludeUrls",
       "sourceRejectCounts",
-      "preferredSources"
+      "preferredSources",
+      "visionVerify"
     ],
-    "maxResultsPerType": 3,
-    "costRule": "one Brave Image Search request per requested type"
+    "responseFields": [
+      "titleMeta",
+      "results",
+      "requestsUsed",
+      "visionChecks",
+      "visionPassed",
+      "visionErrors",
+      "visionModel"
+    ],
+    "verification": {
+      "is_score": "must be true",
+      "score_type": "must match requested type or be unknown",
+      "title_match": "no is rejected; yes accepted above threshold; uncertain requires strong search metadata match",
+      "maxVisionChecksPerType": 3,
+      "targetResultsPerType": 2
+    }
   },
-  "audioAnalysis": "501 NOT_IMPLEMENTED"
+  "health": {
+    "method": "GET",
+    "path": "/health"
+  },
+  "visionTest": {
+    "method": "POST",
+    "path": "/vision-test",
+    "body": [
+      "imageUrl",
+      "title",
+      "scoreType"
+    ]
+  },
+  "audioAnalysis": {
+    "path": "/analyze-audio",
+    "status": "501 NOT_IMPLEMENTED"
+  }
 }
