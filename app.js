@@ -99,6 +99,8 @@ function adopt(i){
  $('editBpm').value=c.bpm||'';
  $('editMeter').value=c.meter||'';
  $('chordText').value=c.chords||'';
+ maybeLoadJianpuFromAdopted(c);
+ if((c.scoreType||'chord')==='numbered'){const d=$('jianpuDetails');if(d)d.open=true;}
  $('editState').textContent='已建立排练版。原谱已保留，可以自由编辑。';
  updateShiftUI();
  $('editorPanel').scrollIntoView({behavior:'smooth',block:'start'});
@@ -234,6 +236,158 @@ async function exportPdf(){
 }
 $('pdfBtn').onclick=exportPdf;
 
+
+function insertAtCursor(el,text){
+ const start=el.selectionStart??el.value.length;
+ const end=el.selectionEnd??el.value.length;
+ el.value=el.value.slice(0,start)+text+el.value.slice(end);
+ const pos=start+text.length;
+ el.focus();el.setSelectionRange(pos,pos);
+ el.dispatchEvent(new Event('input',{bubbles:true}));
+}
+document.querySelectorAll('[data-token]').forEach(btn=>{
+ btn.addEventListener('click',()=>insertAtCursor($('jianpuText'),btn.dataset.token+' '));
+});
+document.querySelectorAll('[data-wrap-prefix]').forEach(btn=>{
+ btn.addEventListener('click',()=>{
+  const el=$('jianpuText'),start=el.selectionStart,end=el.selectionEnd;
+  if(start!==end){
+   const selected=el.value.slice(start,end);
+   el.value=el.value.slice(0,start)+btn.dataset.wrapPrefix+selected+el.value.slice(end);
+   el.dispatchEvent(new Event('input',{bubbles:true}));
+  }else insertAtCursor(el,btn.dataset.wrapPrefix);
+ });
+});
+document.querySelectorAll('[data-octave]').forEach(btn=>{
+ btn.addEventListener('click',()=>insertAtCursor($('jianpuText'),btn.dataset.octave==='up'?"'":","));
+});
+$('insertChordBtn').onclick=()=>{
+ const chord=prompt('输入和弦，例如 D / Bm / A/C#');
+ if(chord) insertAtCursor($('jianpuText'),`[${chord}] `);
+};
+$('newLineBtn').onclick=()=>insertAtCursor($('jianpuText'),'\n');
+
+function tokenizeJianpuLine(line){
+ return line.trim().split(/\s+/).filter(Boolean);
+}
+function renderJianpuToken(tok){
+ if(/^\[[^\]]+\]$/.test(tok)){
+   return `<span class="jianpu-token chord">${escapeHtml(tok.slice(1,-1))}</span>`;
+ }
+ if(tok==='|'||tok==='||'||tok==='|:'||tok===':|'){
+   return `<span class="jianpu-token bar">${escapeHtml(tok)}</span>`;
+ }
+ if(tok==='-'||tok==='_'||tok==='·'){
+   return `<span class="jianpu-token rhythm">${escapeHtml(tok)}</span>`;
+ }
+ let m=tok.match(/^([#b]?)([0-7])([',]*)$/);
+ if(m){
+   const accidental=m[1],num=m[2],oct=m[3]||'';
+   let cls='jianpu-token accidental';
+   if(oct.includes("'")) cls+=' jianpu-dot-up';
+   if(oct.includes(",")) cls+=' jianpu-dot-down';
+   return `<span class="${cls}">${escapeHtml(accidental+num)}</span>`;
+ }
+ return `<span class="jianpu-token">${escapeHtml(tok)}</span>`;
+}
+function renderJianpuHtml(text,lyrics,key){
+ const lines=String(text||'').split(/\r?\n/);
+ const lyricLines=String(lyrics||'').split(/\r?\n/);
+ let out=`<div class="jianpu-key-note">1 = <strong>${escapeHtml(key||'--')}</strong></div>`;
+ let has=false;
+ lines.forEach((line,i)=>{
+  if(!line.trim() && !(lyricLines[i]||'').trim()) return;
+  has=true;
+  const tokens=tokenizeJianpuLine(line);
+  out+=`<div class="jianpu-line"><div class="jianpu-music-row">${tokens.map(renderJianpuToken).join('')}</div>`;
+  if(lyricLines[i]!==undefined && lyricLines[i].trim()) out+=`<div class="jianpu-lyric-row">${escapeHtml(lyricLines[i])}</div>`;
+  out+='</div>';
+ });
+ if(!has) return '<div class="empty">输入简谱后，这里会实时预览。</div>';
+ return out;
+}
+function currentJianpuKey(){
+ return $('editKey').value.trim() || state.original?.key || state.adopted?.key || '';
+}
+function refreshJianpu(){
+ const key=currentJianpuKey();
+ $('jianpuKeyLabel').textContent=key||'--';
+ $('jianpuPreview').innerHTML=renderJianpuHtml($('jianpuText').value,$('jianpuLyrics').value,key);
+}
+$('jianpuText').addEventListener('input',refreshJianpu);
+$('jianpuLyrics').addEventListener('input',refreshJianpu);
+$('editKey').addEventListener('input',refreshJianpu);
+
+function transposeBracketChords(text,delta){
+ return String(text||'').replace(/\[([^\]]+)\]/g,(m,ch)=>`[${transposeText(ch,delta)}]`);
+}
+function transposeJianpu(delta){
+ if(!$('jianpuText').value.trim() && !currentJianpuKey()){toast('先载入或输入简谱');return}
+ const key=currentJianpuKey();
+ if(key){
+   $('editKey').value=trRoot(key,delta);
+   updateShiftUI();
+ }
+ $('jianpuText').value=transposeBracketChords($('jianpuText').value,delta);
+ state.shift+=delta;
+ refreshJianpu();
+ markEdited();
+ toast(`简谱已${delta>0?'升':'降'}半音：数字保持，1=调和和弦已调整`);
+}
+$('jianpuDownBtn').onclick=()=>transposeJianpu(-1);
+$('jianpuUpBtn').onclick=()=>transposeJianpu(1);
+
+$('syncFromChartBtn').onclick=()=>{
+ $('jianpuText').value=$('chordText').value||'';
+ refreshJianpu();
+ toast('已从排练版复制');
+};
+$('syncToChartBtn').onclick=()=>{
+ $('chordText').value=$('jianpuText').value||'';
+ markEdited();
+ toast('已同步到排练版');
+};
+
+function maybeLoadJianpuFromAdopted(c){
+ if((c.scoreType||'chord')==='numbered'){
+   $('jianpuText').value=c.chords||'';
+   $('jianpuLyrics').value=c.lyrics||'';
+   refreshJianpu();
+ }
+}
+
+
+async function exportJianpuPdf(){
+ if(!window.html2canvas||!window.jspdf){toast('PDF 组件尚未加载，请稍后再试');return}
+ const title=$('editTitle').value.trim()||state.title||'简谱';
+ const key=currentJianpuKey();
+ const source=state.original?.source||state.adopted?.source||'未标注';
+ $('jianpuPdfTitle').textContent=title;
+ $('jianpuPdfKey').textContent=key||'--';
+ $('jianpuPdfBpm').textContent=$('editBpm').value.trim()||'--';
+ $('jianpuPdfMeter').textContent=$('editMeter').value.trim()||'--';
+ $('jianpuPdfSource').textContent=source;
+ $('jianpuPdfPreview').innerHTML=renderJianpuHtml($('jianpuText').value,$('jianpuLyrics').value,key);
+ toast('正在生成简谱 PDF…');
+ try{
+   const canvas=await html2canvas($('jianpuPdfSheet'),{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false});
+   const {jsPDF}=window.jspdf;
+   const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4',compress:true});
+   const pageW=210,pageH=297,imgW=pageW,imgH=canvas.height*imgW/canvas.width;
+   const data=canvas.toDataURL('image/jpeg',0.94);
+   let y=0,remaining=imgH,first=true;
+   while(remaining>0){
+     if(!first)pdf.addPage();
+     pdf.addImage(data,'JPEG',0,-y,imgW,imgH);
+     y+=pageH;remaining-=pageH;first=false;
+   }
+   pdf.save(`${safeFileName(title)}-${safeFileName(key||'简谱')}-简谱.pdf`);
+   toast('简谱 PDF 已下载');
+ }catch(e){console.error(e);toast('简谱 PDF 生成失败')}
+}
+$('jianpuPdfBtn').onclick=exportJianpuPdf;
+refreshJianpu();
+
 function currentTime(){return player&&typeof player.getCurrentTime==='function'?player.getCurrentTime():null}
 function fmt(sec){sec=Math.max(0,Math.floor(Number(sec)||0));return `${Math.floor(sec/60)}:${String(sec%60).padStart(2,'0')}`}
 $('setABtn').onclick=()=>{const t=currentTime();if(t===null){toast('先播放视频');return}state.loopA=t;$('loopAValue').textContent=fmt(t)}
@@ -257,6 +411,7 @@ function loadSong(x){
  if(state.original){
   const v=state.adopted?.rehearsal||{title:state.original.title,source:state.original.source,key:state.original.key,bpm:state.original.bpm,meter:state.original.meter,chords:state.original.chords,shift:0};
   $('editorSource').textContent=v.source||state.original.source;$('editTitle').value=v.title||'';$('editKey').value=v.key||'';$('editBpm').value=v.bpm||'';$('editMeter').value=v.meter||'';$('chordText').value=v.chords||'';updateShiftUI();$('editState').textContent='已从歌曲库恢复排练版。';
+  if((state.original?.scoreType||state.adopted?.scoreType)==='numbered'){$('jianpuText').value=v.chords||'';refreshJianpu();}
  }
  status('done','已载入歌曲','已恢复歌曲、候选谱和排练版。','✓');window.scrollTo({top:0,behavior:'smooth'})
 }
