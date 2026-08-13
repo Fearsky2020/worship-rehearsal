@@ -1,18 +1,16 @@
 {
-  "schemaVersion": "1.2",
+  "schemaVersion": "1.3",
   "search": {
     "path": "/search",
-    "resultFields": [
-      "scoreType",
-      "source",
+    "requestFields": [
       "title",
-      "sourcePageUrl",
-      "imageUrl",
-      "thumbnailUrl",
-      "key",
-      "previewType",
-      "text"
-    ]
+      "requestedTypes",
+      "excludeUrls",
+      "sourceRejectCounts",
+      "preferredSources"
+    ],
+    "maxResultsPerType": 3,
+    "costRule": "one Brave Image Search request per requested type"
   },
   "audioAnalysis": "501 NOT_IMPLEMENTED"
 }

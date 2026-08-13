@@ -457,10 +457,7 @@ renderCandidates();renderLib();renderSearch();updateShiftUI();
 
 
 // ===== V3.0 unified candidate/search layer =====
-const DEFAULT_WORKER_ENDPOINT = 'https://worship-search-worker.emsitao.workers.dev';
-const WORKER_CONFIG = {
-  endpoint: localStorage.getItem('worship-search-worker-endpoint') || DEFAULT_WORKER_ENDPOINT
-};
+const WORKER_CONFIG = {endpoint: localStorage.getItem('worship-search-worker-endpoint') || 'https://worship-search-worker.emsitao.workers.dev'};
 
 function resultBoxFor(type){
   return type==='staff' ? $('autoStaffResults') : type==='numbered' ? $('autoNumberedResults') : $('autoChordResults');
@@ -526,7 +523,6 @@ async function runWorkerSearch(){
   try{
     const res=await fetch(WORKER_CONFIG.endpoint.replace(/\/$/,'')+'/search',{
       method:'POST',
-      cache:'no-store',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         schemaVersion:'1.0',
@@ -693,7 +689,7 @@ async function continueSearchFromCandidate(i){
   try{
     status('working','继续寻找其他来源','正在排除当前来源并寻找下一批候选…','…');
     const res=await fetch(WORKER_CONFIG.endpoint.replace(/\/$/,'')+'/search',{
-      method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},
+      method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         schemaVersion:'1.1',title:state.title,youtubeUrl:state.youtubeUrl,videoId:state.videoId,
         requestedTypes:[c.scoreType||'chord'],
@@ -720,7 +716,7 @@ $('generateFromAudioBtn').onclick=async()=>{
   try{
     status('working','正在独立分析音频','公开预览仅作为校准信息…','…');
     const res=await fetch(WORKER_CONFIG.endpoint.replace(/\/$/,'')+'/analyze-audio',{
-      method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},
+      method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         schemaVersion:'1.1',
         title:state.title,youtubeUrl:state.youtubeUrl,videoId:state.videoId,
@@ -776,47 +772,32 @@ $('addGeneratedDraftBtn').onclick=()=>{
 // Legacy V2 candidate-form controls are optional in V3+.
 // All remaining legacy bindings must capture and null-check elements before reading `.value`.
 
-
-// ===== V3.2 Worker settings + connectivity =====
+// Worker settings (V3.2.1 baseline behavior)
 (function initWorkerSettings(){
-  const input=$('workerEndpointInput');
-  const statusEl=$('workerStatus');
-  if(!input || !statusEl) return;
-
-  const saved=localStorage.getItem('worship-search-worker-endpoint') || '';
-  input.value=saved || DEFAULT_WORKER_ENDPOINT;
-  statusEl.textContent=saved ? `已配置自定义地址：${saved}` : `使用默认地址：${DEFAULT_WORKER_ENDPOINT}`;
-
-  $('saveWorkerEndpointBtn').onclick=()=>{
+  const input=$('workerEndpointInput'),statusEl=$('workerStatus');
+  if(!input||!statusEl)return;
+  const saved=localStorage.getItem('worship-search-worker-endpoint')||WORKER_CONFIG.endpoint;
+  input.value=saved;statusEl.textContent=`已配置：${saved}`;
+  const saveBtn=$('saveWorkerEndpointBtn'),testBtn=$('testWorkerBtn');
+  if(saveBtn)saveBtn.onclick=()=>{
     const value=input.value.trim().replace(/\/+$/,'');
     if(!value){
       localStorage.removeItem('worship-search-worker-endpoint');
-      WORKER_CONFIG.endpoint=DEFAULT_WORKER_ENDPOINT;
-      input.value=DEFAULT_WORKER_ENDPOINT;
-      statusEl.textContent=`使用默认地址：${DEFAULT_WORKER_ENDPOINT}`;
-      toast('已恢复默认 Worker 地址');
-      return;
+      WORKER_CONFIG.endpoint='https://worship-search-worker.emsitao.workers.dev';
+      input.value=WORKER_CONFIG.endpoint;statusEl.textContent=`已恢复默认：${WORKER_CONFIG.endpoint}`;
+      toast('已恢复默认 Worker');return;
     }
     localStorage.setItem('worship-search-worker-endpoint',value);
-    WORKER_CONFIG.endpoint=value;
-    statusEl.textContent=`已配置：${value}`;
-    toast('Worker 地址已保存');
+    WORKER_CONFIG.endpoint=value;statusEl.textContent=`已配置：${value}`;toast('Worker 地址已保存');
   };
-
-  $('testWorkerBtn').onclick=async()=>{
-    const endpoint=(input.value.trim() || WORKER_CONFIG.endpoint || '').replace(/\/+$/,'');
-    if(!endpoint){toast('请先填写 Worker 地址');return}
+  if(testBtn)testBtn.onclick=async()=>{
+    const endpoint=(input.value.trim()||WORKER_CONFIG.endpoint).replace(/\/+$/,'');
     statusEl.textContent='正在测试连接…';
     try{
-      const res=await fetch(endpoint+'/health',{cache:'no-store'});
-      const data=await res.json().catch(()=>({}));
-      if(!res.ok) throw new Error(`HTTP ${res.status}`);
-      statusEl.textContent=`连接正常：${data.service||'Search Worker'} · ${data.version||''}`.trim();
+      const res=await fetch(endpoint+'/health',{cache:'no-store'}),data=await res.json().catch(()=>({}));
+      if(!res.ok)throw new Error(`HTTP ${res.status}`);
+      statusEl.textContent=`连接正常：${data.service||'Search Worker'} · ${data.version||''}`;
       toast('Search Worker 连接正常');
-    }catch(err){
-      console.error(err);
-      statusEl.textContent=`连接失败：${err.message||'未知错误'}`;
-      toast('Search Worker 连接失败');
-    }
+    }catch(err){statusEl.textContent=`连接失败：${err.message||'未知错误'}`;toast('Search Worker 连接失败')}
   };
 })();

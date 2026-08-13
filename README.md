@@ -1,3 +1,3 @@
-# Worship Rehearsal V3.3 — Score First
+# Worship Rehearsal V3.4 — Smart Score Filter
 
-Direct score-image previews first; source links secondary; Worker V1.1 uses Brave Image Search before web fallbacks.
+Complete package. One image-search request per score type, video-thumbnail filtering, top-3 ranking, and visitor ✓/✕ feedback.

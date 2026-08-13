@@ -12,3 +12,7 @@
 .auto-card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
 .auto-card-actions .button{flex:1 1 auto}
 @media(max-width:720px){.auto-results{grid-template-columns:1fr}.auto-score-preview img{height:auto;max-height:560px}}
+
+.score-feedback{display:flex;gap:8px;margin-top:9px}
+.feedback-btn{flex:1;border:1px solid #34445f;background:#0a1423;color:#aeb9cb;border-radius:10px;padding:8px 9px;font-size:12px;font-weight:800;cursor:pointer}
+.feedback-btn.good:hover{border-color:#3f8156;color:#8de5a7}.feedback-btn.bad:hover{border-color:#8c4848;color:#ff9f9f}
