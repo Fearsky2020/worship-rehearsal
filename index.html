@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b1020">
   <title>Worship Rehearsal</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=3.2.0">
 </head>
 <body>
 <header class="topbar">
   <div class="brand">
     <div class="brand-mark">W</div>
     <div>
-      <div class="eyebrow">WORSHIP TOOLS · V3.1.2</div>
+      <div class="eyebrow">WORSHIP TOOLS · V3.2</div>
       <h1>排练包</h1>
     </div>
   </div>
@@ -292,6 +292,18 @@
   <details class="workspace-card collapsible-card advanced">
     <summary class="card-summary"><span><div class="section-kicker">高级</div><strong>Music-AI · 后备分析</strong><small>找不到可用现成谱时再用</small></span><span class="chevron">⌄</span></summary>
     <div class="collapsible-body advanced-content">
+      <div class="worker-settings">
+        <div>
+          <strong>Search Worker</strong>
+          <p class="muted">部署 Worker 后，把地址贴这里。保存后自动搜谱就会真正工作。</p>
+        </div>
+        <div class="worker-setting-row">
+          <input id="workerEndpointInput" placeholder="https://worship-search-worker.xxx.workers.dev">
+          <button id="saveWorkerEndpointBtn" class="button">保存 Worker 地址</button>
+          <button id="testWorkerBtn" class="button subtle">测试连接</button>
+        </div>
+        <div id="workerStatus" class="candidate-meta">尚未配置。</div>
+      </div>
       <label class="file-box"><span>选择 Music-AI JSON</span><input id="jsonFile" type="file" accept=".json,application/json"></label>
       <textarea id="jsonText" class="json-box"></textarea>
       <div class="button-row"><button id="applyJsonBtn" class="button">加入 Music-AI 候选</button><button id="clearJsonBtn" class="button subtle">清空</button></div>
@@ -315,6 +327,6 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://unpkg.com/jspdf@4.1.0/dist/jspdf.umd.min.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=3.2.0"></script>
 </body>
 </html>

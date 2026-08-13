@@ -114,3 +114,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent)}
 .generated-draft.hidden{display:none}
 .generated-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}
 .generated-draft textarea{min-height:220px;margin-bottom:9px}
+
+.worker-settings{padding:14px;border:1px solid #33435f;border-radius:15px;background:#0a1423;margin-bottom:14px}
+.worker-setting-row{display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-top:10px}
+@media(max-width:820px){.worker-setting-row{grid-template-columns:1fr}.worker-setting-row .button{width:100%}}

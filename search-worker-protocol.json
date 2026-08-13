@@ -71,5 +71,11 @@
     "response": {
       "text": "AI 根据音频独立分析生成的排练谱文本"
     }
+  },
+  "workerV1": {
+    "provider": "Brave Search API",
+    "health": "GET /health",
+    "search": "POST /search",
+    "audioAnalysis": "POST /analyze-audio returns 501 in V1"
   }
 }
