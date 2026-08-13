@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#111827" />
+  <title>Worship Rehearsal</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">WORSHIP TOOLS</div>
+      <h1>排练包</h1>
+    </div>
+    <button id="saveBtn" class="button primary">保存</button>
+  </header>
+
+  <main class="layout">
+    <section class="panel setup-panel">
+      <h2>歌曲</h2>
+      <label>歌曲名称<input id="title" placeholder="例如：恩典的记号" /></label>
+      <label>YouTube 链接<input id="youtubeUrl" placeholder="https://youtu.be/..." /></label>
+      <div class="grid-two">
+        <label>原调<input id="songKey" value="D" maxlength="4" /></label>
+        <label>BPM<input id="bpm" type="number" min="20" max="300" value="125" /></label>
+      </div>
+      <button id="loadVideoBtn" class="button">载入 YouTube</button>
+      <p class="hint">第一版不下载 YouTube 音频，只使用官方嵌入播放器。</p>
+    </section>
+
+    <section class="panel player-panel">
+      <div id="playerWrap" class="player-wrap">
+        <div id="player"></div>
+        <div id="emptyPlayer" class="empty-player">粘贴 YouTube 链接后点“载入 YouTube”</div>
+      </div>
+
+      <div class="loop-row">
+        <button id="setA" class="button small">设 A</button>
+        <button id="setB" class="button small">设 B</button>
+        <button id="toggleLoop" class="button small">循环：关</button>
+        <button id="clearLoop" class="button small ghost">清除</button>
+      </div>
+      <div class="loop-display">
+        <span>A <strong id="aTime">--:--</strong></span>
+        <span>B <strong id="bTime">--:--</strong></span>
+      </div>
+    </section>
+
+    <section class="panel chart-panel">
+      <div class="chart-header">
+        <div>
+          <div class="eyebrow">CHORD CHART</div>
+          <h2 id="chartTitle">未命名歌曲</h2>
+        </div>
+        <div class="transpose">
+          <button id="down" class="button small">−1</button>
+          <div class="key-badge"><span id="displayKey">D</span><small id="shiftLabel">原调</small></div>
+          <button id="up" class="button small">+1</button>
+        </div>
+      </div>
+
+      <textarea id="chords" spellcheck="false" placeholder="把和弦谱粘贴到这里，例如：
+
+[Verse]
+D          G
+祢的恩典 一生之久
+Bm         A
+祢的慈爱 永不止息
+
+支持：D, D/F#, Bm7, Asus4, C#dim 等"></textarea>
+
+      <div class="quick-actions">
+        <button id="resetTranspose" class="button ghost">恢复原调</button>
+        <button id="copyChords" class="button ghost">复制当前和弦谱</button>
+      </div>
+    </section>
+
+    <section class="panel tips-panel">
+      <h2>排练提示</h2>
+      <div class="stats">
+        <div><span>Key</span><strong id="statKey">D</strong></div>
+        <div><span>BPM</span><strong id="statBpm">125</strong></div>
+        <div><span>移调</span><strong id="statShift">0</strong></div>
+      </div>
+      <p>适合敬拜团队排练：主领看结构，乐手移调，某一段难练时直接设置 A/B 循环。</p>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="https://www.youtube.com/iframe_api"></script>
+  <script src="app.js"></script>
+</body>
+</html>
