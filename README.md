@@ -1,3 +1,40 @@
+# Worship Rehearsal V3.1.2 — Legacy DOM Safety Hotfix
+
+This patch fixes the remaining V2 legacy candidate-form references after the V3 UI refactor.
+
+## Fix
+The old candidate form no longer exists in the V3 page, but V2 JavaScript still referenced:
+- candidateType
+- candidatePreviewType
+- candidateSource
+- candidateUrl
+- candidateKey
+- candidateChords
+
+V3.1.2 now captures every legacy element first and only installs the old handler if **all** elements exist.
+
+There are no remaining direct legacy expressions such as:
+
+```js
+$('candidateType').value
+```
+
+The V3.1 Search Worker, upload, AI calibration, editor, numbered-notation, PDF, A/B loop, and library behavior are otherwise unchanged.
+
+
+# Worship Rehearsal V3.1.1 — Hotfix
+
+修复 V3.0 / V3.1 重构后旧 DOM 依赖导致的启动失败。
+
+## 修复
+- V3 页面已移除旧 `addCandidateBtn`，旧 JS 仍直接绑定 `.onclick`，导致脚本启动即报错。
+- 旧 `searchGrid` 在 V3 页面不存在，`renderSearch()` 现在安全退出。
+- 旧 `candidateType` 不存在时不再报错。
+- 主按钮 `startBtn` 增加最终安全绑定和错误状态显示。
+
+不改变 V3.1 的搜索协议、上传、AI 校准、编辑、简谱和 PDF 功能。
+
+
 # Worship Rehearsal V3.1 — Source Fallback & AI Calibration
 
 V3.1 实现新的找谱策略：

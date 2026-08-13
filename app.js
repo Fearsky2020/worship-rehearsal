@@ -49,6 +49,7 @@ function searchSources(title,type){
 }
 function renderSearch(){
  const g=$('searchGrid');
+ if(!g) return; // V3+ uses unified auto-result columns instead of the legacy searchGrid.
  document.querySelectorAll('[data-score-tab]').forEach(b=>b.classList.toggle('active',b.dataset.scoreTab===state.scoreType));
  if(!state.title||state.title==='尚未识别歌曲'){g.innerHTML='<div class="empty">先识别一首歌曲。</div>';return}
  const meta=SCORE_TYPES[state.scoreType];
@@ -56,7 +57,8 @@ function renderSearch(){
 }
 document.querySelectorAll('[data-score-tab]').forEach(btn=>btn.addEventListener('click',()=>{
  state.scoreType=btn.dataset.scoreTab;
- $('candidateType').value=state.scoreType;
+ const candidateType=$('candidateType');
+ if(candidateType) candidateType.value=state.scoreType;
  renderSearch();
 }));
 
@@ -107,7 +109,41 @@ function adopt(i){
  toast(`已采用：${c.source}`);
 }
 
-$('addCandidateBtn').onclick=()=>{const scoreType=$('candidateType').value,previewType=$('candidatePreviewType').value,source=$('candidateSource').value.trim(),url=$('candidateUrl').value.trim(),key=$('candidateKey').value.trim(),chords=$('candidateChords').value.trim();if(!source){toast('请填写来源');return}addCandidate({scoreType,previewType,source,url,key,chords,kind:'chart'});$('candidateSource').value='';$('candidateUrl').value='';$('candidateKey').value='';$('candidateChords').value='';$('candidatePreviewType').value='auto'};
+{
+ const legacyAddCandidateBtn=$('addCandidateBtn');
+ const legacyCandidateType=$('candidateType');
+ const legacyCandidatePreviewType=$('candidatePreviewType');
+ const legacyCandidateSource=$('candidateSource');
+ const legacyCandidateUrl=$('candidateUrl');
+ const legacyCandidateKey=$('candidateKey');
+ const legacyCandidateChords=$('candidateChords');
+
+ if(
+   legacyAddCandidateBtn &&
+   legacyCandidateType &&
+   legacyCandidatePreviewType &&
+   legacyCandidateSource &&
+   legacyCandidateUrl &&
+   legacyCandidateKey &&
+   legacyCandidateChords
+ ){
+   legacyAddCandidateBtn.onclick=()=>{
+     const scoreType=legacyCandidateType.value;
+     const previewType=legacyCandidatePreviewType.value;
+     const source=legacyCandidateSource.value.trim();
+     const url=legacyCandidateUrl.value.trim();
+     const key=legacyCandidateKey.value.trim();
+     const chords=legacyCandidateChords.value.trim();
+     if(!source){toast('请填写来源');return}
+     addCandidate({scoreType,previewType,source,url,key,chords,kind:'chart'});
+     legacyCandidateSource.value='';
+     legacyCandidateUrl.value='';
+     legacyCandidateKey.value='';
+     legacyCandidateChords.value='';
+     legacyCandidatePreviewType.value='auto';
+   };
+ }
+}
 
 
 function detectPreviewType(c){
@@ -718,3 +754,22 @@ $('addGeneratedDraftBtn').onclick=()=>{
   });
   toast('AI 音频草稿已加入候选');
 };
+
+
+// V3.1.1 boot guard: bind the primary action only after all legacy compatibility code has loaded.
+(function bootPrimaryAction(){
+  const btn=$('startBtn');
+  if(btn) btn.onclick=async()=>{
+    try{
+      await start();
+    }catch(err){
+      console.error('START_FAILED',err);
+      status('error','识别失败',err?.message||'页面脚本发生错误','!');
+    }
+  };
+})();
+
+
+// V3.1.2 compatibility note:
+// Legacy V2 candidate-form controls are optional in V3+.
+// All remaining legacy bindings must capture and null-check elements before reading `.value`.
