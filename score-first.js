@@ -15,8 +15,8 @@
    const v=c.vision;
    if(!v)return '<div class="vision-badges"><span class="vision-badge warn">视觉核验不可用</span></div>';
    const title=v.title_match==='yes'
-     ? '<span class="vision-badge ok">✓ 歌名匹配</span>'
-     : '<span class="vision-badge warn">歌名未完全可见</span>';
+     ? '<span class="vision-badge ok">✓ 歌曲确认</span>'
+     : '<span class="vision-badge warn">△ 歌名未完全可见</span>';
    const type=v.type_match===true
      ? '<span class="vision-badge ok">✓ 谱型正确</span>'
      : '<span class="vision-badge warn">谱型不确定</span>';
@@ -48,7 +48,7 @@
    const fb=loadFeedback();status('working','正在搜索并视觉验谱',state.title,'…');
    try{
      const res=await fetch(WORKER_CONFIG.endpoint.replace(/\/$/,'')+'/search',{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-       schemaVersion:'1.5',title:state.title,youtubeUrl:state.youtubeUrl,videoId:state.videoId,requestedTypes:types,
+       schemaVersion:'1.6',title:state.title,youtubeUrl:state.youtubeUrl,videoId:state.videoId,requestedTypes:types,
        excludeUrls:[...new Set([...fb.rejectedUrls.slice(-100),...extraExclude])],
        sourceRejectCounts:fb.sourceRejectCounts,preferredSources:fb.preferredSources,visionVerify:true
      })});
