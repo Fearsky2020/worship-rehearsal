@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0b1020">
   <title>Worship Rehearsal</title>
-  <link rel="stylesheet" href="styles.css?v=3.4.0">
+  <link rel="stylesheet" href="styles.css?v=3.5.0">
 </head>
 <body>
 <header class="topbar">
   <div class="brand">
     <div class="brand-mark">W</div>
     <div>
-      <div class="eyebrow">WORSHIP TOOLS · V3.4</div>
+      <div class="eyebrow">WORSHIP TOOLS · V3.5</div>
       <h1>排练包</h1>
     </div>
   </div>
@@ -61,17 +61,18 @@
       <button id="refreshSearchBtn" class="button">重新搜索</button>
     </div>
 
+    <div id="searchCompatibility" class="search-compatibility"><strong>等待识别歌曲</strong><small>识别后会显示简繁体兼容标题与艺术家辅助信息。</small></div>
     <div class="result-columns">
       <div class="result-column">
-        <div class="result-column-head"><span>🎸</span><strong>和弦谱</strong></div>
+        <div class="result-column-head"><span>🎸</span><strong>和弦谱</strong><button class="button subtle refresh-score" data-refresh-score="chord">换一批</button></div>
         <div id="autoChordResults" class="auto-results"><div class="empty">等待自动搜索。</div></div>
       </div>
       <div class="result-column">
-        <div class="result-column-head"><span>🎼</span><strong>五线谱</strong></div>
+        <div class="result-column-head"><span>🎼</span><strong>五线谱</strong><button class="button subtle refresh-score" data-refresh-score="staff">换一批</button></div>
         <div id="autoStaffResults" class="auto-results"><div class="empty">等待自动搜索。</div></div>
       </div>
       <div class="result-column">
-        <div class="result-column-head"><span>123</span><strong>简谱</strong></div>
+        <div class="result-column-head"><span>123</span><strong>简谱</strong><button class="button subtle refresh-score" data-refresh-score="numbered">换一批</button></div>
         <div id="autoNumberedResults" class="auto-results"><div class="empty">等待自动搜索。</div></div>
       </div>
     </div>
@@ -327,8 +328,8 @@
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://unpkg.com/jspdf@4.1.0/dist/jspdf.umd.min.js"></script>
-<script src="app.js?v=3.4.0"></script>
-<link rel="stylesheet" href="score-first.css?v=3.4.0">
-<script src="score-first.js?v=3.4.0"></script>
+<script src="app.js?v=3.5.0"></script>
+<link rel="stylesheet" href="score-first.css?v=3.5.0">
+<script src="score-first.js?v=3.5.0"></script>
 </body>
 </html>

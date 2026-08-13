@@ -16,3 +16,7 @@
 .score-feedback{display:flex;gap:8px;margin-top:9px}
 .feedback-btn{flex:1;border:1px solid #34445f;background:#0a1423;color:#aeb9cb;border-radius:10px;padding:8px 9px;font-size:12px;font-weight:800;cursor:pointer}
 .feedback-btn.good:hover{border-color:#3f8156;color:#8de5a7}.feedback-btn.bad:hover{border-color:#8c4848;color:#ff9f9f}
+.search-compatibility{margin:0 0 12px;padding:10px 12px;border:1px solid #30415e;border-radius:12px;background:rgba(15,23,42,.5)}
+.search-compatibility strong,.search-compatibility small{display:block}.search-compatibility small{margin-top:3px;color:#8f9cb0;line-height:1.45}
+.result-column-head .refresh-score{margin-left:auto;padding:6px 9px;font-size:12px}
+@media(max-width:600px){.search-compatibility{font-size:13px}.search-compatibility small{font-size:11px}.result-column-head{flex-wrap:wrap}}
