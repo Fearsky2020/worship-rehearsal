@@ -10,29 +10,45 @@
 <body>
   <header class="topbar">
     <div>
-      <div class="eyebrow">WORSHIP TOOLS</div>
+      <div class="eyebrow">WORSHIP TOOLS · V2</div>
       <h1>排练包</h1>
     </div>
-    <button id="saveBtn" class="button primary">保存</button>
+    <button id="saveBtn" class="button primary">保存到歌曲库</button>
   </header>
 
   <main class="layout">
-    <section class="panel setup-panel">
-      <h2>歌曲</h2>
-      <label>歌曲名称<input id="title" placeholder="例如：恩典的记号" /></label>
-      <label>YouTube 链接<input id="youtubeUrl" placeholder="https://youtu.be/..." /></label>
-      <div class="grid-two">
-        <label>原调<input id="songKey" value="D" maxlength="4" /></label>
-        <label>BPM<input id="bpm" type="number" min="20" max="300" value="125" /></label>
+    <section class="panel setup-panel hero-panel">
+      <div class="eyebrow">ONE LINK → REHEARSAL PACK</div>
+      <h2>粘贴 YouTube 链接</h2>
+      <div class="url-row">
+        <input id="youtubeUrl" placeholder="https://youtu.be/..." inputmode="url" />
+        <button id="generateBtn" class="button primary">生成排练包</button>
       </div>
-      <button id="loadVideoBtn" class="button">载入 YouTube</button>
-      <p class="hint">第一版不下载 YouTube 音频，只使用官方嵌入播放器。</p>
+      <p class="hint">V2 会自动读取 YouTube 视频标题；Key、BPM、和弦可直接导入 Music-AI JSON。后续接本地 Music-AI 后，这一步会变成全自动。</p>
+
+      <div class="auto-status" aria-label="自动化状态">
+        <div><span>视频标题</span><strong id="statusTitle">等待链接</strong></div>
+        <div><span>Key / BPM</span><strong id="statusAnalysis">等待分析</strong></div>
+        <div><span>和弦</span><strong id="statusChords">等待分析</strong></div>
+      </div>
     </section>
 
     <section class="panel player-panel">
       <div id="playerWrap" class="player-wrap">
         <div id="player"></div>
-        <div id="emptyPlayer" class="empty-player">粘贴 YouTube 链接后点“载入 YouTube”</div>
+        <div id="emptyPlayer" class="empty-player">粘贴链接后点“生成排练包”</div>
+      </div>
+
+      <div class="song-heading">
+        <div>
+          <div class="eyebrow">NOW REHEARSING</div>
+          <h2 id="chartTitle">未命名歌曲</h2>
+        </div>
+        <div class="meta-badges">
+          <span>Key <strong id="metaKey">--</strong></span>
+          <span>BPM <strong id="metaBpm">--</strong></span>
+          <span id="meterBadge">--</span>
+        </div>
       </div>
 
       <div class="loop-row">
@@ -47,28 +63,36 @@
       </div>
     </section>
 
+    <section class="panel analysis-panel">
+      <div class="section-header">
+        <div>
+          <div class="eyebrow">MUSIC-AI BRIDGE</div>
+          <h2>导入分析结果</h2>
+        </div>
+        <label class="button ghost file-button">选择 JSON<input id="analysisFile" type="file" accept="application/json,.json" /></label>
+      </div>
+      <p class="hint">支持常见字段：<code>title</code>、<code>key</code>、<code>bpm</code>、<code>meter</code>、<code>chords</code>。如果 chords 是时间轴数组，会自动生成排练和弦表。</p>
+      <textarea id="analysisJson" spellcheck="false" placeholder='也可以直接粘贴 JSON，例如：\n{\n  "key":"D",\n  "bpm":125,\n  "meter":"4/4",\n  "chords":[{"start":0.74,"chord":"D"},{"start":1.14,"chord":"A"}]\n}'></textarea>
+      <div class="quick-actions">
+        <button id="applyAnalysis" class="button">应用分析</button>
+        <button id="clearAnalysis" class="button ghost">清空</button>
+      </div>
+    </section>
+
     <section class="panel chart-panel">
       <div class="chart-header">
         <div>
           <div class="eyebrow">CHORD CHART</div>
-          <h2 id="chartTitle">未命名歌曲</h2>
+          <h2>和弦谱</h2>
         </div>
         <div class="transpose">
           <button id="down" class="button small">−1</button>
-          <div class="key-badge"><span id="displayKey">D</span><small id="shiftLabel">原调</small></div>
+          <div class="key-badge"><span id="displayKey">--</span><small id="shiftLabel">原调</small></div>
           <button id="up" class="button small">+1</button>
         </div>
       </div>
 
-      <textarea id="chords" spellcheck="false" placeholder="把和弦谱粘贴到这里，例如：
-
-[Verse]
-D          G
-祢的恩典 一生之久
-Bm         A
-祢的慈爱 永不止息
-
-支持：D, D/F#, Bm7, Asus4, C#dim 等"></textarea>
+      <textarea id="chords" spellcheck="false" placeholder="导入 Music-AI 结果后，这里会自动生成和弦时间轴；也可以手工修正。"></textarea>
 
       <div class="quick-actions">
         <button id="resetTranspose" class="button ghost">恢复原调</button>
@@ -76,14 +100,16 @@ Bm         A
       </div>
     </section>
 
-    <section class="panel tips-panel">
-      <h2>排练提示</h2>
-      <div class="stats">
-        <div><span>Key</span><strong id="statKey">D</strong></div>
-        <div><span>BPM</span><strong id="statBpm">125</strong></div>
-        <div><span>移调</span><strong id="statShift">0</strong></div>
+    <section class="panel library-panel">
+      <div class="section-header">
+        <div>
+          <div class="eyebrow">LOCAL LIBRARY</div>
+          <h2>我的歌曲库</h2>
+        </div>
+        <button id="clearLibrary" class="button ghost small">清空歌曲库</button>
       </div>
-      <p>适合敬拜团队排练：主领看结构，乐手移调，某一段难练时直接设置 A/B 循环。</p>
+      <div id="library" class="library-list"></div>
+      <p id="emptyLibrary" class="hint">还没有保存歌曲。生成排练包后点右上角“保存到歌曲库”。</p>
     </section>
   </main>
 
