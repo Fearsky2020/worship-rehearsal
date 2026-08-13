@@ -1,0 +1,75 @@
+{
+  "schemaVersion": "1.1",
+  "request": {
+    "method": "POST",
+    "path": "/search",
+    "body": {
+      "schemaVersion": "1.1",
+      "title": "歌曲标题",
+      "youtubeUrl": "https://...",
+      "videoId": "...",
+      "requestedTypes": [
+        "chord",
+        "staff",
+        "numbered"
+      ],
+      "excludeSources": [],
+      "excludeUrls": []
+    }
+  },
+  "response": {
+    "schemaVersion": "1.0",
+    "results": {
+      "chord": [
+        {
+          "source": "来源名",
+          "url": "https://...",
+          "key": "D",
+          "previewType": "page",
+          "text": "",
+          "scoreType": "chord"
+        }
+      ],
+      "staff": [
+        {
+          "source": "来源名",
+          "url": "https://.../score.pdf",
+          "key": "D",
+          "previewType": "pdf",
+          "scoreType": "staff"
+        }
+      ],
+      "numbered": [
+        {
+          "source": "来源名",
+          "url": "https://...",
+          "key": "D",
+          "previewType": "image",
+          "scoreType": "numbered"
+        }
+      ]
+    }
+  },
+  "audioAnalysis": {
+    "method": "POST",
+    "path": "/analyze-audio",
+    "purpose": "Independently derive remaining rehearsal content from audio; visible public preview may only calibrate key, meter, tempo, visible structure/layout.",
+    "body": {
+      "schemaVersion": "1.1",
+      "title": "歌曲标题",
+      "youtubeUrl": "https://...",
+      "videoId": "...",
+      "targetType": "numbered",
+      "calibration": {
+        "key": "D",
+        "meter": "4/4",
+        "bpm": "125",
+        "visibleText": "",
+        "constraint": "Use only visible calibration facts. Independently derive remaining musical content from audio. Do not reconstruct unseen source pages."
+      }
+    },
+    "response": {
+      "text": "AI 根据音频独立分析生成的排练谱文本"
+    }
+  }
+}

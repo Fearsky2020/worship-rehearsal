@@ -418,3 +418,303 @@ function loadSong(x){
 $('clearLibraryBtn').onclick=()=>{if(confirm('确定清空本机歌曲库吗？'))setLib([])};
 $('startBtn').onclick=start;
 renderCandidates();renderLib();renderSearch();updateShiftUI();
+
+
+// ===== V3.0 unified candidate/search layer =====
+const WORKER_CONFIG = {
+  endpoint: localStorage.getItem('worship-search-worker-endpoint') || ''
+};
+
+function resultBoxFor(type){
+  return type==='staff' ? $('autoStaffResults') : type==='numbered' ? $('autoNumberedResults') : $('autoChordResults');
+}
+
+function normalizeWorkerCandidate(raw,type){
+  return {
+    scoreType: raw.scoreType || type,
+    source: raw.source || '未标注来源',
+    key: raw.key || '',
+    bpm: raw.bpm || '',
+    meter: raw.meter || '',
+    url: raw.url || '',
+    previewType: raw.previewType || 'auto',
+    chords: raw.text || raw.chords || '',
+    title: raw.title || state.title,
+    kind: raw.kind || 'search',
+    fileName: raw.fileName || ''
+  };
+}
+
+function renderAutoResults(type,items){
+  const box=resultBoxFor(type);
+  if(!items || !items.length){
+    box.innerHTML='<div class="empty">没有自动结果。</div>';
+    return;
+  }
+  box.innerHTML=items.map((raw,i)=>{
+    const c=normalizeWorkerCandidate(raw,type);
+    return `<div class="auto-card">
+      <strong>${escapeHtml(c.source)}</strong>
+      <small>${escapeHtml(c.key ? 'Key '+c.key : 'Key 未知')}</small>
+      <div class="auto-card-actions">
+        <button class="button" data-auto-add="${type}:${i}">加入候选</button>
+        ${c.url?`<a class="button subtle" href="${escapeHtml(c.url)}" target="_blank" rel="noopener">来源</a>`:''}
+      </div>
+    </div>`;
+  }).join('');
+  box.dataset.items=JSON.stringify(items);
+  box.querySelectorAll('[data-auto-add]').forEach(btn=>{
+    btn.onclick=()=>{
+      const [t,idx]=btn.dataset.autoAdd.split(':');
+      const sourceBox=resultBoxFor(t);
+      const arr=JSON.parse(sourceBox.dataset.items||'[]');
+      addCandidate(normalizeWorkerCandidate(arr[Number(idx)],t));
+    };
+  });
+}
+
+function setAutoWaiting(message){
+  ['chord','staff','numbered'].forEach(t=>{
+    resultBoxFor(t).innerHTML=`<div class="empty">${escapeHtml(message)}</div>`;
+  });
+}
+
+async function runWorkerSearch(){
+  if(!state.title || state.title==='尚未识别歌曲') return;
+  if(!WORKER_CONFIG.endpoint){
+    setAutoWaiting('等待 Search Worker 接入。可先使用“换来源自己找”或上传自己的谱。');
+    return;
+  }
+  setAutoWaiting('正在搜索…');
+  try{
+    const res=await fetch(WORKER_CONFIG.endpoint.replace(/\/$/,'')+'/search',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        schemaVersion:'1.0',
+        title:state.title,
+        youtubeUrl:state.youtubeUrl,
+        videoId:state.videoId,
+        requestedTypes:['chord','staff','numbered']
+      })
+    });
+    if(!res.ok) throw new Error(`Worker ${res.status}`);
+    const data=await res.json();
+    renderAutoResults('chord',data.results?.chord||[]);
+    renderAutoResults('staff',data.results?.staff||[]);
+    renderAutoResults('numbered',data.results?.numbered||[]);
+    status('done','搜谱结果已返回','三类谱已更新。','✓');
+  }catch(e){
+    console.error(e);
+    setAutoWaiting('自动搜索暂不可用。请换来源或上传自己的谱。');
+    status('error','Search Worker 暂不可用',e.message||'搜索失败','!');
+  }
+}
+
+const originalStart = start;
+start = async function(){
+  await originalStart();
+  if(state.title && state.title!=='尚未识别歌曲') await runWorkerSearch();
+};
+$('startBtn').onclick=start;
+$('refreshSearchBtn').onclick=runWorkerSearch;
+
+function manualSearchUrl(type,source,title){
+  const q=encodeURIComponent(title||'');
+  const google=x=>`https://www.google.com/search?q=${encodeURIComponent(x)}`;
+  const typeTerm=type==='staff'?'sheet music 五线谱':type==='numbered'?'简谱 数字谱':'chords 和弦谱';
+  if(source==='praisecharts') return google(`site:praisecharts.com ${title} ${typeTerm}`);
+  if(source==='chordify') return `https://chordify.net/search/${q}`;
+  if(source==='ultimate') return google(`site:tabs.ultimate-guitar.com ${title} chords`);
+  if(source==='musescore') return google(`site:musescore.com ${title} ${typeTerm}`);
+  if(source==='youtube') return `https://www.youtube.com/results?search_query=${encodeURIComponent(title+' '+typeTerm)}`;
+  return google(`${title} ${typeTerm}`);
+}
+$('openManualSourceBtn').onclick=()=>{
+  if(!state.title || state.title==='尚未识别歌曲'){toast('先识别歌曲');return}
+  const url=manualSearchUrl($('manualScoreType').value,$('manualSource').value,state.title);
+  window.open(url,'_blank','noopener');
+};
+
+function fileToDataUrl(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>resolve(r.result);
+    r.onerror=reject;
+    r.readAsDataURL(file);
+  });
+}
+function fileToText(file){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>resolve(String(r.result||''));
+    r.onerror=reject;
+    r.readAsText(file);
+  });
+}
+function previewTypeForFile(file){
+  const name=(file?.name||'').toLowerCase();
+  const type=file?.type||'';
+  if(type.startsWith('image/') || /\.(png|jpg|jpeg|webp)$/.test(name)) return 'image';
+  if(type==='application/pdf' || /\.pdf$/.test(name)) return 'pdf';
+  if(/\.(musicxml|xml|mxl)$/.test(name)) return 'page';
+  return 'text';
+}
+$('addUploadBtn').onclick=async()=>{
+  const file=$('uploadFile').files?.[0]||null;
+  const pasted=$('uploadText').value.trim();
+  const scoreType=$('uploadScoreType').value;
+  const key=$('uploadKey').value.trim();
+  if(!file && !pasted){toast('请选择文件或粘贴谱子');return}
+  let candidate={
+    scoreType,source:'用户上传',key,url:'',previewType:'text',chords:pasted,kind:'upload',fileName:file?.name||''
+  };
+  try{
+    if(file){
+      const mode=previewTypeForFile(file);
+      candidate.previewType=mode;
+      if(mode==='text'){
+        candidate.chords = pasted || await fileToText(file);
+      }else{
+        candidate.url = await fileToDataUrl(file);
+      }
+    }
+    addCandidate(candidate);
+    $('uploadFile').value='';$('uploadText').value='';$('uploadKey').value='';
+    toast('已加入用户上传候选');
+  }catch(e){
+    console.error(e);toast('读取上传文件失败');
+  }
+};
+
+// ensure empty result areas are initialized
+setAutoWaiting('等待自动搜索。');
+
+
+// ===== V3.1 source fallback + calibration workflow =====
+state.calibration = null;
+
+const _renderCandidatesV31 = renderCandidates;
+renderCandidates = function(){
+  _renderCandidatesV31();
+  const box=$('candidateList');
+  if(!box) return;
+  [...box.querySelectorAll('.candidate')].forEach((card,i)=>{
+    const c=state.candidates[i];
+    if(!c) return;
+    const actions=card.querySelector('.candidate-actions');
+    if(actions && !actions.querySelector('[data-calibrate]')){
+      const b=document.createElement('button');
+      b.className='button subtle';
+      b.dataset.calibrate=String(i);
+      b.textContent='用此页校准 AI';
+      b.onclick=()=>setCalibration(i);
+      actions.prepend(b);
+      const more=document.createElement('button');
+      more.className='button subtle';
+      more.dataset.more=String(i);
+      more.textContent='这个不行，继续找';
+      more.onclick=()=>continueSearchFromCandidate(i);
+      actions.append(more);
+    }
+  });
+};
+
+function setCalibration(i){
+  const c=state.candidates[i]; if(!c)return;
+  state.calibration={
+    source:c.source||'未标注',
+    scoreType:c.scoreType||'chord',
+    key:c.key||'',
+    meter:c.meter||'',
+    bpm:c.bpm||'',
+    url:c.url||'',
+    visibleText:c.chords||'',
+    note:'仅作为可见页面的调性、拍号、结构和版式校准；不得要求补全来源未公开页面。'
+  };
+  const type=SCORE_TYPES[state.calibration.scoreType]||SCORE_TYPES.chord;
+  $('calibrationState').innerHTML=`<strong>${escapeHtml(type.label)} · ${escapeHtml(state.calibration.source)}</strong>
+    <div class="candidate-meta">Key ${escapeHtml(state.calibration.key||'未知')} · 拍号 ${escapeHtml(state.calibration.meter||'未知')}</div>
+    <div class="candidate-meta">用途：校准独立音频分析，不用于还原未公开乐谱。</div>`;
+  $('calibrationPanel').scrollIntoView({behavior:'smooth',block:'start'});
+  toast('已设为 AI 校准参考');
+}
+
+$('clearCalibrationBtn').onclick=()=>{
+  state.calibration=null;
+  $('calibrationState').innerHTML='<div class="empty">在候选谱上点“用此页校准 AI”。</div>';
+  $('generatedDraftBox').classList.add('hidden');
+};
+
+async function continueSearchFromCandidate(i){
+  const c=state.candidates[i]; if(!c)return;
+  if(!WORKER_CONFIG.endpoint){
+    toast('Search Worker 尚未接入，请使用“换来源自己找”');
+    return;
+  }
+  try{
+    status('working','继续寻找其他来源','正在排除当前来源并寻找下一批候选…','…');
+    const res=await fetch(WORKER_CONFIG.endpoint.replace(/\/$/,'')+'/search',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        schemaVersion:'1.1',title:state.title,youtubeUrl:state.youtubeUrl,videoId:state.videoId,
+        requestedTypes:[c.scoreType||'chord'],
+        excludeSources:[c.source||''],
+        excludeUrls:[c.url||'']
+      })
+    });
+    if(!res.ok)throw new Error(`Worker ${res.status}`);
+    const data=await res.json();
+    renderAutoResults(c.scoreType||'chord',data.results?.[c.scoreType||'chord']||[]);
+    status('done','已找到下一批来源','可以继续预览和选择。','✓');
+  }catch(e){console.error(e);status('error','继续搜索失败',e.message||'Worker 暂不可用','!')}
+}
+
+$('generateFromAudioBtn').onclick=async()=>{
+  if(!state.videoId){toast('先识别 YouTube 歌曲');return}
+  $('generatedDraftBox').classList.remove('hidden');
+  $('generatedDraftText').value='';
+  if(!WORKER_CONFIG.endpoint){
+    $('generatedDraftText').value='Search Worker 尚未接入。\n\n接入后，这里会请求 Worker 根据原始音频独立分析剩余内容；公开预览只用于 Key / 拍号 / 可见结构等校准。';
+    toast('等待 Search Worker 接入');
+    return;
+  }
+  try{
+    status('working','正在独立分析音频','公开预览仅作为校准信息…','…');
+    const res=await fetch(WORKER_CONFIG.endpoint.replace(/\/$/,'')+'/analyze-audio',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        schemaVersion:'1.1',
+        title:state.title,youtubeUrl:state.youtubeUrl,videoId:state.videoId,
+        targetType:state.calibration?.scoreType||'chord',
+        calibration:state.calibration ? {
+          key:state.calibration.key,meter:state.calibration.meter,bpm:state.calibration.bpm,
+          visibleText:state.calibration.visibleText,
+          constraint:'Use only visible calibration facts. Independently derive remaining musical content from audio. Do not reconstruct unseen source pages.'
+        } : null
+      })
+    });
+    if(!res.ok)throw new Error(`Worker ${res.status}`);
+    const data=await res.json();
+    $('generatedDraftText').value=data.text||data.chords||'';
+    status('done','音频分析草稿已生成','请人工检查后再采用。','✓');
+  }catch(e){
+    console.error(e);
+    $('generatedDraftText').value=`分析失败：${e.message||'Worker 暂不可用'}`;
+    status('error','音频分析失败',e.message||'Worker 暂不可用','!');
+  }
+};
+
+$('addGeneratedDraftBtn').onclick=()=>{
+  const text=$('generatedDraftText').value.trim();
+  if(!text){toast('还没有生成内容');return}
+  addCandidate({
+    scoreType:state.calibration?.scoreType||'chord',
+    source:'AI 根据音频分析生成',
+    key:state.calibration?.key||'',
+    meter:state.calibration?.meter||'',
+    bpm:state.calibration?.bpm||'',
+    url:'',previewType:'text',chords:text,kind:'ai-audio'
+  });
+  toast('AI 音频草稿已加入候选');
+};

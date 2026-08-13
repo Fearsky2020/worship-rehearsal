@@ -12,7 +12,7 @@
   <div class="brand">
     <div class="brand-mark">W</div>
     <div>
-      <div class="eyebrow">WORSHIP TOOLS · V2.7</div>
+      <div class="eyebrow">WORSHIP TOOLS · V3.1</div>
       <h1>排练包</h1>
     </div>
   </div>
@@ -20,13 +20,10 @@
 </header>
 
 <main class="shell">
-
   <section class="hero-card">
-    <div class="hero-copy">
-      <div class="step-pill">01 · 开始</div>
-      <h2>粘贴一首 YouTube 歌曲</h2>
-      <p>系统先识别歌曲，再优先找现成谱。找不到合适版本时，再用 Music-AI 兜底。</p>
-    </div>
+    <div class="step-pill">01 · 开始</div>
+    <h2>粘贴 YouTube 链接</h2>
+    <p>系统识别歌曲后，统一展示和弦谱、五线谱、简谱候选。自动结果不满意时，可以换来源或上传自己的谱。</p>
     <div class="hero-action">
       <input id="youtubeUrl" type="url" placeholder="https://youtu.be/..." autocomplete="off">
       <button id="startBtn" class="button primary large">识别并找谱</button>
@@ -35,17 +32,17 @@
       <div class="status-icon">①</div>
       <div>
         <strong id="statusTitle">等待 YouTube 链接</strong>
-        <span id="statusText">粘贴歌曲链接，然后点“识别并找谱”。</span>
+        <span id="statusText">粘贴链接后，系统会准备三类谱的候选结果。</span>
       </div>
     </div>
   </section>
 
-  <section class="workspace-card song-card">
+  <section class="workspace-card">
     <div class="card-head">
       <div>
         <div class="section-kicker">当前歌曲</div>
         <h2 id="songTitle">尚未识别歌曲</h2>
-        <p id="sourceHint" class="muted">识别歌曲后，这里会生成搜谱入口。</p>
+        <p id="sourceHint" class="muted">识别后会进入候选结果页。</p>
       </div>
     </div>
     <div id="playerWrap" class="player-placeholder">
@@ -57,61 +54,116 @@
   <section class="workspace-card">
     <div class="card-head">
       <div>
-        <div class="section-kicker">02 · 找谱</div>
-        <h2>选择你要找的谱型</h2>
-        <p class="muted">和弦谱、五线谱、简谱分开找；只标注来源和谱型。</p>
+        <div class="section-kicker">02 · 自动结果</div>
+        <h2>搜谱结果</h2>
+        <p class="muted">优先展示可直接预览的公开候选；不能直接使用时保留来源链接。公开预览页可用于校准后续的独立音频分析。</p>
+      </div>
+      <button id="refreshSearchBtn" class="button">重新搜索</button>
+    </div>
+
+    <div class="result-columns">
+      <div class="result-column">
+        <div class="result-column-head"><span>🎸</span><strong>和弦谱</strong></div>
+        <div id="autoChordResults" class="auto-results"><div class="empty">等待自动搜索。</div></div>
+      </div>
+      <div class="result-column">
+        <div class="result-column-head"><span>🎼</span><strong>五线谱</strong></div>
+        <div id="autoStaffResults" class="auto-results"><div class="empty">等待自动搜索。</div></div>
+      </div>
+      <div class="result-column">
+        <div class="result-column-head"><span>123</span><strong>简谱</strong></div>
+        <div id="autoNumberedResults" class="auto-results"><div class="empty">等待自动搜索。</div></div>
       </div>
     </div>
 
-    <div class="score-tabs" role="tablist" aria-label="谱型">
-      <button class="score-tab active" data-score-tab="chord"><span>🎸</span><strong>和弦谱</strong></button>
-      <button class="score-tab" data-score-tab="staff"><span>🎼</span><strong>五线谱</strong></button>
-      <button class="score-tab" data-score-tab="numbered"><span>123</span><strong>简谱</strong></button>
-    </div>
-
-    <div id="searchGrid" class="search-grid"><div class="empty">先识别一首歌曲。</div></div>
-
     <details class="subpanel">
       <summary>
-        <span><strong>手动记录一个候选谱</strong><small>找到合适谱后再展开</small></span>
+        <span><strong>不满意？换来源自己找</strong><small>展开后可指定搜索来源</small></span>
         <span class="chevron">⌄</span>
       </summary>
-      <div class="subpanel-body candidate-editor">
-        <div class="candidate-row three">
-          <select id="candidateType" aria-label="谱型">
+      <div class="subpanel-body">
+        <div class="source-picker">
+          <select id="manualScoreType">
             <option value="chord">和弦谱</option>
             <option value="staff">五线谱</option>
             <option value="numbered">简谱</option>
           </select>
-          <input id="candidateSource" placeholder="来源，例如网页 / Chordify">
-          <input id="candidateKey" placeholder="Key，例如 D">
-        </div>
-
-        <div class="candidate-row preview-row">
-          <input id="candidateUrl" placeholder="谱子页面 / 图片 / PDF 链接">
-          <select id="candidatePreviewType" aria-label="预览方式">
-            <option value="auto">自动判断预览</option>
-            <option value="page">网页链接</option>
-            <option value="image">图片</option>
-            <option value="pdf">PDF</option>
-            <option value="text">文字谱</option>
+          <select id="manualSource">
+            <option value="google">Google 全网</option>
+            <option value="praisecharts">PraiseCharts</option>
+            <option value="chordify">Chordify</option>
+            <option value="ultimate">Ultimate Guitar</option>
+            <option value="musescore">MuseScore</option>
+            <option value="youtube">YouTube</option>
           </select>
+          <button id="openManualSourceBtn" class="button">打开搜索</button>
         </div>
-
-        <textarea id="candidateChords" placeholder="可选：粘贴可编辑的谱面文字、和弦或简谱内容。"></textarea>
-        <button id="addCandidateBtn" class="button">加入候选</button>
       </div>
     </details>
 
-    <div id="candidateList" class="candidate-list"></div>
+    <details class="subpanel">
+      <summary>
+        <span><strong>上传自己的谱子</strong><small>PDF / 图片 / MusicXML / 文本</small></span>
+        <span class="chevron">⌄</span>
+      </summary>
+      <div class="subpanel-body upload-area">
+        <div class="upload-grid">
+          <select id="uploadScoreType">
+            <option value="chord">和弦谱</option>
+            <option value="staff">五线谱</option>
+            <option value="numbered">简谱</option>
+          </select>
+          <input id="uploadFile" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.musicxml,.xml,.mxl,.txt,.md,text/plain,application/pdf,image/*">
+        </div>
+        <input id="uploadKey" placeholder="Key（可选，例如 D）">
+        <textarea id="uploadText" placeholder="如果是文本和弦谱/简谱，也可以直接粘贴在这里。"></textarea>
+        <button id="addUploadBtn" class="button primary">加入“用户上传”候选</button>
+      </div>
+    </details>
+  </section>
+
+  <section class="workspace-card">
+    <div class="card-head">
+      <div>
+        <div class="section-kicker">03 · 候选</div>
+        <h2>全部候选谱</h2>
+        <p class="muted">自动结果、手动来源、用户上传，最后都会进入同一套候选卡片。</p>
+      </div>
+    </div>
+    <div id="candidateList" class="candidate-list"><div class="empty">还没有候选谱。</div></div>
+  </section>
+
+  <section class="workspace-card calibration-card" id="calibrationPanel">
+    <div class="card-head">
+      <div>
+        <div class="section-kicker">AI 校准</div>
+        <h2>用公开预览校准后续分析</h2>
+        <p class="muted">只提取调性、拍号、版式和可见结构等校准信息；剩余内容由音频独立分析生成，不尝试还原来源网站未公开的后续页面。</p>
+      </div>
+    </div>
+    <div id="calibrationState" class="calibration-state">
+      <div class="empty">在候选谱上点“用此页校准 AI”。</div>
+    </div>
+    <div class="calibration-actions">
+      <button id="clearCalibrationBtn" class="button subtle">清除校准</button>
+      <button id="generateFromAudioBtn" class="button primary">根据音频生成剩余排练版</button>
+    </div>
+    <div id="generatedDraftBox" class="generated-draft hidden">
+      <div class="generated-head">
+        <strong>AI 音频分析草稿</strong>
+        <span class="type-badge">AI 根据音频分析生成</span>
+      </div>
+      <textarea id="generatedDraftText" placeholder="Search Worker / Music-AI 返回的独立分析结果会显示在这里。"></textarea>
+      <button id="addGeneratedDraftBtn" class="button">加入候选</button>
+    </div>
   </section>
 
   <section class="workspace-card preview-panel" id="previewPanel">
     <div class="card-head">
       <div>
-        <div class="section-kicker">03 · 预览</div>
+        <div class="section-kicker">04 · 预览</div>
         <h2>谱面预览</h2>
-        <p class="muted">先看清楚，再决定要不要采用。</p>
+        <p class="muted">先看，再采用。</p>
       </div>
       <div class="preview-actions">
         <a id="openSourceBtn" class="button" href="#" target="_blank" rel="noopener">打开来源</a>
@@ -119,17 +171,15 @@
       </div>
     </div>
     <div id="previewMeta" class="preview-meta">尚未选择候选。</div>
-    <div id="previewBody" class="preview-body">
-      <div class="empty">点击候选中的“预览”。</div>
-    </div>
+    <div id="previewBody" class="preview-body"><div class="empty">点击候选里的“预览”。</div></div>
   </section>
 
   <section class="workspace-card editor-panel" id="editorPanel">
     <div class="card-head">
       <div>
-        <div class="section-kicker">04 · 编辑</div>
+        <div class="section-kicker">05 · 编辑</div>
         <h2>我的排练版</h2>
-        <p class="muted">采用候选后，只改自己的排练版；原谱始终保留。</p>
+        <p class="muted">采用候选后，只编辑自己的排练版，来源和原谱保留。</p>
       </div>
       <div class="source-badge">来源：<strong id="editorSource">尚未选择</strong></div>
     </div>
@@ -152,7 +202,7 @@
     </div>
 
     <label class="chart-label">排练谱内容
-      <textarea id="chordText" class="chart-editor" placeholder="采用候选谱后，可在这里自由编辑。"></textarea>
+      <textarea id="chordText" class="chart-editor" placeholder="采用文字型候选后，可在这里自由编辑。"></textarea>
     </label>
 
     <div class="editor-actions">
@@ -166,67 +216,43 @@
 
   <details class="workspace-card collapsible-card" id="jianpuDetails">
     <summary class="card-summary">
-      <span>
-        <div class="section-kicker">05 · 简谱工具</div>
-        <strong>简谱编辑器</strong>
-        <small>只有需要简谱时再展开</small>
-      </span>
+      <span><div class="section-kicker">06 · 简谱工具</div><strong>简谱编辑器</strong><small>采用简谱候选时会自动展开</small></span>
       <span class="chevron">⌄</span>
     </summary>
     <div class="collapsible-body" id="jianpuPanel">
       <div class="jianpu-title-line">
-        <p class="muted">数字音符采用首调唱名：移调时数字保持，主要改变 1=调；[和弦] 会跟着转调。</p>
+        <p class="muted">首调简谱：数字保持，1=调和 [和弦] 跟着移调。</p>
         <div class="source-badge">1 = <strong id="jianpuKeyLabel">--</strong></div>
       </div>
 
       <div class="jianpu-toolbar">
         <div class="tool-group">
           <span class="tool-label">音符</span>
-          <button class="note-btn" data-token="1">1</button>
-          <button class="note-btn" data-token="2">2</button>
-          <button class="note-btn" data-token="3">3</button>
-          <button class="note-btn" data-token="4">4</button>
-          <button class="note-btn" data-token="5">5</button>
-          <button class="note-btn" data-token="6">6</button>
-          <button class="note-btn" data-token="7">7</button>
-          <button class="note-btn" data-token="0">0</button>
+          <button class="note-btn" data-token="1">1</button><button class="note-btn" data-token="2">2</button>
+          <button class="note-btn" data-token="3">3</button><button class="note-btn" data-token="4">4</button>
+          <button class="note-btn" data-token="5">5</button><button class="note-btn" data-token="6">6</button>
+          <button class="note-btn" data-token="7">7</button><button class="note-btn" data-token="0">0</button>
         </div>
-
         <div class="tool-group">
           <span class="tool-label">变化</span>
-          <button class="note-btn" data-wrap-prefix="#">♯</button>
-          <button class="note-btn" data-wrap-prefix="b">♭</button>
-          <button class="note-btn" data-octave="up">高八度</button>
-          <button class="note-btn" data-octave="down">低八度</button>
+          <button class="note-btn" data-wrap-prefix="#">♯</button><button class="note-btn" data-wrap-prefix="b">♭</button>
+          <button class="note-btn" data-octave="up">高八度</button><button class="note-btn" data-octave="down">低八度</button>
         </div>
-
         <div class="tool-group">
           <span class="tool-label">节奏</span>
-          <button class="note-btn" data-token="-">延音 —</button>
-          <button class="note-btn" data-token="_">减时 _</button>
-          <button class="note-btn" data-token="·">附点 ·</button>
-          <button class="note-btn" data-token="|">|</button>
+          <button class="note-btn" data-token="-">延音 —</button><button class="note-btn" data-token="_">减时 _</button>
+          <button class="note-btn" data-token="·">附点 ·</button><button class="note-btn" data-token="|">|</button>
           <button class="note-btn" data-token="||">||</button>
         </div>
-
         <div class="tool-group">
           <span class="tool-label">结构</span>
-          <button class="note-btn" id="insertChordBtn">[和弦]</button>
-          <button class="note-btn" id="newLineBtn">换行</button>
+          <button class="note-btn" id="insertChordBtn">[和弦]</button><button class="note-btn" id="newLineBtn">换行</button>
         </div>
-      </div>
-
-      <div class="jianpu-help">
-        例：<code>[D] 1 2 3 5 | [G] 5 4 3 2 | 1 - - -</code>
       </div>
 
       <div class="two-col">
-        <label class="chart-label">简谱
-          <textarea id="jianpuText" class="jianpu-textarea" placeholder="[D] 1 2 3 5 | [G] 5 4 3 2 | 1 - - -"></textarea>
-        </label>
-        <label class="chart-label">歌词
-          <textarea id="jianpuLyrics" class="jianpu-lyrics" placeholder="每行对应上方简谱的一行歌词"></textarea>
-        </label>
+        <label class="chart-label">简谱<textarea id="jianpuText" class="jianpu-textarea"></textarea></label>
+        <label class="chart-label">歌词<textarea id="jianpuLyrics" class="jianpu-lyrics"></textarea></label>
       </div>
 
       <div class="jianpu-actions">
@@ -239,45 +265,24 @@
 
       <div class="jianpu-preview-wrap">
         <div class="section-kicker">实时预览</div>
-        <div id="jianpuPreview" class="jianpu-preview">
-          <div class="empty">输入简谱后，这里会实时预览。</div>
-        </div>
+        <div id="jianpuPreview" class="jianpu-preview"><div class="empty">输入简谱后实时预览。</div></div>
       </div>
     </div>
   </details>
 
   <details class="workspace-card collapsible-card">
-    <summary class="card-summary">
-      <span>
-        <div class="section-kicker">06 · 排练</div>
-        <strong>A/B 循环</strong>
-        <small>练难点时再展开</small>
-      </span>
-      <span class="chevron">⌄</span>
-    </summary>
+    <summary class="card-summary"><span><div class="section-kicker">07 · 排练</div><strong>A/B 循环</strong><small>练难点时展开</small></span><span class="chevron">⌄</span></summary>
     <div class="collapsible-body">
       <div class="loop-controls">
-        <button id="setABtn" class="button">设 A</button>
-        <button id="setBBtn" class="button">设 B</button>
-        <button id="toggleLoopBtn" class="button">循环：关</button>
-        <button id="clearLoopBtn" class="button subtle">清除</button>
+        <button id="setABtn" class="button">设 A</button><button id="setBBtn" class="button">设 B</button>
+        <button id="toggleLoopBtn" class="button">循环：关</button><button id="clearLoopBtn" class="button subtle">清除</button>
       </div>
-      <div class="loop-time">
-        <span>A <strong id="loopAValue">--:--</strong></span>
-        <span>B <strong id="loopBValue">--:--</strong></span>
-      </div>
+      <div class="loop-time"><span>A <strong id="loopAValue">--:--</strong></span><span>B <strong id="loopBValue">--:--</strong></span></div>
     </div>
   </details>
 
   <details class="workspace-card collapsible-card">
-    <summary class="card-summary">
-      <span>
-        <div class="section-kicker">07 · 歌曲库</div>
-        <strong>我的歌曲库</strong>
-        <small>保存的排练包都在这里</small>
-      </span>
-      <span class="chevron">⌄</span>
-    </summary>
+    <summary class="card-summary"><span><div class="section-kicker">08 · 歌曲库</div><strong>我的歌曲库</strong><small>保存的排练包</small></span><span class="chevron">⌄</span></summary>
     <div class="collapsible-body">
       <div id="libraryList" class="library-list"></div>
       <button id="clearLibraryBtn" class="button subtle">清空歌曲库</button>
@@ -285,55 +290,25 @@
   </details>
 
   <details class="workspace-card collapsible-card advanced">
-    <summary class="card-summary">
-      <span>
-        <div class="section-kicker">高级</div>
-        <strong>Music-AI · 后备分析</strong>
-        <small>找不到可用现成谱时再用</small>
-      </span>
-      <span class="chevron">⌄</span>
-    </summary>
+    <summary class="card-summary"><span><div class="section-kicker">高级</div><strong>Music-AI · 后备分析</strong><small>找不到可用现成谱时再用</small></span><span class="chevron">⌄</span></summary>
     <div class="collapsible-body advanced-content">
-      <label class="file-box">
-        <span>选择 Music-AI JSON</span>
-        <input id="jsonFile" type="file" accept=".json,application/json">
-      </label>
-      <textarea id="jsonText" class="json-box" placeholder='{"key":"D","bpm":125,"meter":"4/4","chords":[{"start":0.74,"chord":"D"}]}'></textarea>
-      <div class="button-row">
-        <button id="applyJsonBtn" class="button">加入 Music-AI 候选</button>
-        <button id="clearJsonBtn" class="button subtle">清空</button>
-      </div>
+      <label class="file-box"><span>选择 Music-AI JSON</span><input id="jsonFile" type="file" accept=".json,application/json"></label>
+      <textarea id="jsonText" class="json-box"></textarea>
+      <div class="button-row"><button id="applyJsonBtn" class="button">加入 Music-AI 候选</button><button id="clearJsonBtn" class="button subtle">清空</button></div>
     </div>
   </details>
-
 </main>
 
 <section id="pdfSheet" class="pdf-sheet" aria-hidden="true">
-  <div class="pdf-head">
-    <div class="pdf-kicker">WORSHIP REHEARSAL</div>
-    <h1 id="pdfTitle">歌曲</h1>
-    <div class="pdf-meta">
-      <span>Key <strong id="pdfKey">--</strong></span>
-      <span>BPM <strong id="pdfBpm">--</strong></span>
-      <span>拍号 <strong id="pdfMeter">--</strong></span>
-      <span>来源 <strong id="pdfSource">--</strong></span>
-    </div>
-  </div>
-  <pre id="pdfChart"></pre>
+  <div class="pdf-head"><div class="pdf-kicker">WORSHIP REHEARSAL</div><h1 id="pdfTitle">歌曲</h1>
+    <div class="pdf-meta"><span>Key <strong id="pdfKey">--</strong></span><span>BPM <strong id="pdfBpm">--</strong></span><span>拍号 <strong id="pdfMeter">--</strong></span><span>来源 <strong id="pdfSource">--</strong></span></div>
+  </div><pre id="pdfChart"></pre>
 </section>
 
 <section id="jianpuPdfSheet" class="pdf-sheet jianpu-pdf-sheet" aria-hidden="true">
-  <div class="pdf-head">
-    <div class="pdf-kicker">WORSHIP REHEARSAL · NUMBERED NOTATION</div>
-    <h1 id="jianpuPdfTitle">简谱</h1>
-    <div class="pdf-meta">
-      <span>1 = <strong id="jianpuPdfKey">--</strong></span>
-      <span>BPM <strong id="jianpuPdfBpm">--</strong></span>
-      <span>拍号 <strong id="jianpuPdfMeter">--</strong></span>
-      <span>来源 <strong id="jianpuPdfSource">--</strong></span>
-    </div>
-  </div>
-  <div id="jianpuPdfPreview" class="jianpu-preview pdf-jianpu-preview"></div>
+  <div class="pdf-head"><div class="pdf-kicker">WORSHIP REHEARSAL · NUMBERED NOTATION</div><h1 id="jianpuPdfTitle">简谱</h1>
+    <div class="pdf-meta"><span>1 = <strong id="jianpuPdfKey">--</strong></span><span>BPM <strong id="jianpuPdfBpm">--</strong></span><span>拍号 <strong id="jianpuPdfMeter">--</strong></span><span>来源 <strong id="jianpuPdfSource">--</strong></span></div>
+  </div><div id="jianpuPdfPreview" class="jianpu-preview pdf-jianpu-preview"></div>
 </section>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
