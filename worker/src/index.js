@@ -1,6 +1,6 @@
 import { Converter } from "opencc-js";
 
-const VERSION = "1.5.0";
+const VERSION = "1.5.1";
 const VISION_MODEL = "@cf/google/gemma-4-26b-a4b-it";
 const VISION_MAX_CHECKS_PER_TYPE = 2;
 const VISION_TARGET_RESULTS_PER_TYPE = 2;
@@ -31,11 +31,11 @@ function normalizeTitle(raw){
  const simplified=toSimplified(core),traditional=toTraditional(core),artistVariants=unique(artists.flatMap(a=>[a,toSimplified(a),toTraditional(a)]));
  return{originalTitle:String(raw||"").trim(),coreTitle:core,simplifiedTitle:simplified,traditionalTitle:traditional,englishTitle:(english[0]||"").trim(),artist:artistVariants[0]||"",titleVariants:unique([core,simplified,traditional]),artistVariants};
 }
-function imageQuery(meta,type){const titles=meta.titleVariants.slice(0,3).map(x=>`"${x}"`).join(" OR "),english=meta.englishTitle?` "${meta.englishTitle}"`:"",artist=meta.artistVariants.slice(0,2).map(x=>`"${x}"`).join(" OR "),terms=type==="staff"?"五线谱 五線譜 乐谱 sheet music":type==="numbered"?"简谱 簡譜 歌谱":"和弦谱 和弦譜 chord chart chords";return`${titles}${english}${artist?` (${artist})`:""} ${terms}`.slice(0,450)}
+function imageQuery(meta,type){const titles=unique([...meta.titleVariants,meta.englishTitle]).map(x=>`"${x}"`).join(" OR "),terms=type==="staff"?'"五线谱" OR "五線譜" OR "sheet music"':type==="numbered"?'"简谱" OR "簡譜" OR jianpu':'"和弦谱" OR "和弦譜" OR chords';return`(${titles}) (${terms})`.slice(0,450)}
 function timeLeft(deadline,limit){return Math.max(1,Math.min(limit,deadline-Date.now()))}
 async function timedFetch(input,init,limit,deadline,label){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeLeft(deadline,limit));try{return await fetch(input,{...init,signal:controller.signal})}catch(error){if(error.name==="AbortError")throw new Error(`${label} timeout`);throw error}finally{clearTimeout(timer)}}
 async function withTimeout(promise,limit,deadline,label){let timer;try{return await Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`${label} timeout`)),timeLeft(deadline,limit))})])}finally{clearTimeout(timer)}}
-async function imageSearch(env,q,count=30,deadline=Date.now()+10000){if(!env.BRAVE_API_KEY)throw new Error("BRAVE_API_KEY is not configured");const u=new URL("https://api.search.brave.com/res/v1/images/search");u.searchParams.set("q",q);u.searchParams.set("count",String(Math.min(count,50)));u.searchParams.set("country","ALL");u.searchParams.set("safesearch","strict");const r=await timedFetch(u,{headers:{"Accept":"application/json","Accept-Encoding":"gzip","X-Subscription-Token":env.BRAVE_API_KEY}},10000,deadline,"Brave Image Search");if(!r.ok)throw new Error(`Brave Image Search ${r.status}: ${(await withTimeout(r.text(),10000,deadline,"Brave response body")).slice(0,180)}`);return withTimeout(r.json(),10000,deadline,"Brave response body")}
+async function imageSearch(env,q,count=100,deadline=Date.now()+10000){if(!env.BRAVE_API_KEY)throw new Error("BRAVE_API_KEY is not configured");const u=new URL("https://api.search.brave.com/res/v1/images/search");u.searchParams.set("q",q);u.searchParams.set("count",String(Math.min(count,200)));u.searchParams.set("country","ALL");u.searchParams.set("search_lang","zh-hans");u.searchParams.set("spellcheck","false");u.searchParams.set("safesearch","strict");const r=await timedFetch(u,{headers:{"Accept":"application/json","Accept-Encoding":"gzip","X-Subscription-Token":env.BRAVE_API_KEY}},10000,deadline,"Brave Image Search");if(!r.ok)throw new Error(`Brave Image Search ${r.status}: ${(await withTimeout(r.text(),10000,deadline,"Brave response body")).slice(0,180)}`);return withTimeout(r.json(),10000,deadline,"Brave response body")}
 function normalizeImage(x,type){const page=x.url||x.source||"",image=x.properties?.url||"",thumbnail=x.thumbnail?.src||x.thumbnail||x.properties?.placeholder||"";return{scoreType:type,source:host(page),title:x.title||"",sourcePageUrl:page,url:page,imageUrl:image,thumbnailUrl:thumbnail,previewType:"image",description:x.description||"",kind:"image-search",width:Number(x.properties?.width||0),height:Number(x.properties?.height||0)}}
 function isVideoHost(value){const h=host(value);return VIDEO_HOSTS.some(x=>h===x||h.endsWith(`.${x}`))}
 function isCoverHost(value){const h=host(value);return COVER_HOSTS.some(x=>h===x||h.endsWith(`.${x}`))}
@@ -53,6 +53,7 @@ function parseVisionJson(raw){
    if(value.visibleSongTitle!==null&&typeof value.visibleSongTitle!=="string")return null;
    if(value.titleMatch!==null&&typeof value.titleMatch!=="boolean")return null;
    if(typeof value.titleMatchConfidence!=="number"||value.titleMatchConfidence<0||value.titleMatchConfidence>1)return null;
+   if(typeof value.hasMusicalNotation!=="boolean"||!["accepted","blank-score","lyrics-only","cover","not-score"].includes(value.contentClass))return null;
    return value;
  }catch{return null}
 }
@@ -67,7 +68,9 @@ function normalizeVision(v,requestedType){
    reason:String(v.rejectionReason||"").slice(0,180),
    visible_title:v.visibleSongTitle?String(v.visibleSongTitle).slice(0,120):null,
    title_match:v.titleMatch===true?"yes":v.titleMatch===false?"no":"uncertain",
-   title_match_confidence:v.titleMatchConfidence
+   title_match_confidence:v.titleMatchConfidence,
+   has_musical_notation:v.hasMusicalNotation,
+   content_class:v.contentClass
  };
 }
 function bytesToBase64(bytes){
@@ -146,7 +149,9 @@ Target song titles: ${titles}
 Target artist or ministry: ${artists}
 Requested score type: ${type}
 Rules:
-- isScore=true only if the image visibly contains musical notation, numbered notation, or a real chord/lyric chart.
+- isScore=true only when the image visibly contains actual musical notation: notes on staves, numbered notation, or chord symbols aligned with lyrics.
+- Empty staff paper with no meaningful notes/chords is blank-score: isScore=false and hasMusicalNotation=false.
+- A title/lyrics slide, lyric poster, or worship presentation without notes, numbered notation, or chord symbols is lyrics-only: isScore=false and hasMusicalNotation=false.
 - Reject video thumbnails, singer photos, album art, posters, lyric-only images, advertisements, app screenshots, and unrelated documents.
 - staff means conventional staff notation with staves/notes.
 - numbered means jianpu / numbered musical notation.
@@ -165,7 +170,7 @@ Keep rejectionReason null when accepted.`;
      temperature:0,
      max_completion_tokens:160,
      chat_template_kwargs:{enable_thinking:false},
-     response_format:{type:"json_schema",json_schema:{name:"score_verification",strict:true,schema:{type:"object",additionalProperties:false,properties:{isScore:{type:"boolean"},scoreType:{type:"string",enum:["chord","staff","numbered","unknown"]},confidence:{type:"number",minimum:0,maximum:1},rejectionReason:{type:["string","null"]},visibleSongTitle:{type:["string","null"]},titleMatch:{type:["boolean","null"]},titleMatchConfidence:{type:"number",minimum:0,maximum:1}},required:["isScore","scoreType","confidence","rejectionReason","visibleSongTitle","titleMatch","titleMatchConfidence"]}}}
+     response_format:{type:"json_schema",json_schema:{name:"score_verification",strict:true,schema:{type:"object",additionalProperties:false,properties:{isScore:{type:"boolean"},scoreType:{type:"string",enum:["chord","staff","numbered","unknown"]},confidence:{type:"number",minimum:0,maximum:1},rejectionReason:{type:["string","null"]},visibleSongTitle:{type:["string","null"]},titleMatch:{type:["boolean","null"]},titleMatchConfidence:{type:"number",minimum:0,maximum:1},hasMusicalNotation:{type:"boolean"},contentClass:{type:"string",enum:["accepted","blank-score","lyrics-only","cover","not-score"]}},required:["isScore","scoreType","confidence","rejectionReason","visibleSongTitle","titleMatch","titleMatchConfidence","hasMusicalNotation","contentClass"]}}}
    }),12000,deadline,"Vision");
    const vision=normalizeVision(parseVisionJson(out),type);
    if(!vision)return{ok:false,error:"vision JSON parse failed",vision:null};
@@ -179,15 +184,28 @@ function metadataTitleStrong(c,meta){
  const english=compact(meta.englishTitle);
  return english.length>=5&&text.includes(english);
 }
-function acceptVision(candidate,vision,type,meta){
- if(!vision)return false;
- if(vision.title_match==="no"&&vision.title_match_confidence>=0.75)return false;
- if(!vision.is_score)return false;
- if(vision.score_type!=="unknown"&&vision.score_type!==type)return vision.confidence<0.75&&metadataTitleStrong(candidate,meta);
- return true;
+function metadataScoreEvidence(c,type){
+ const text=toSimplified(` ${c.title||""} ${c.description||""} `).toLowerCase();
+ const terms=POSITIVE[type].map(x=>toSimplified(x).toLowerCase()),hasTerm=terms.some(x=>text.includes(x));
+ const otherTypes=Object.keys(POSITIVE).filter(x=>x!==type),conflicting=otherTypes.some(other=>POSITIVE[other].map(x=>toSimplified(x).toLowerCase()).some(x=>text.includes(x)));
+ const documentLike=Boolean(c.width&&c.height&&c.width/c.height>=.5&&c.width/c.height<=1.6&&Math.max(c.width,c.height)>=700);
+ return hasTerm&&documentLike&&!conflicting;
+}
+function visionInconsistent(vision){return vision.is_score&&vision.has_musical_notation&&["chord","staff","numbered"].includes(vision.score_type)&&vision.content_class!=="accepted"}
+function hardVisionReject(vision){
+ if(vision.title_match==="no"&&vision.title_match_confidence>=0.75)return"hard-song-mismatch";
+ if(visionInconsistent(vision))return"";
+ if(vision.content_class==="cover"&&vision.confidence>=0.85)return"hard-cover";
+ if(vision.content_class==="blank-score"&&vision.confidence>=0.85&&!vision.has_musical_notation)return"hard-blank-score";
+ if(vision.content_class==="lyrics-only"&&!vision.is_score&&vision.confidence>=0.85&&!vision.has_musical_notation)return"hard-lyrics-only";
+ if(!vision.is_score&&vision.confidence>=0.85&&!vision.has_musical_notation)return"hard-not-score";
+ return"";
+}
+function visionConfirmed(vision,type){
+ return vision.is_score&&vision.has_musical_notation&&vision.title_match==="yes"&&(vision.score_type===type||vision.score_type==="unknown");
 }
 async function searchType(env,meta,type,exclude,rejects,preferred,visionVerify=true,deadline=Date.now()+SEARCH_DEADLINE_MS){
- const query=imageQuery(meta,type),data=await imageSearch(env,query,30,deadline);
+ const query=imageQuery(meta,type),data=await imageSearch(env,query,100,deadline);
  let rows=dedupe((data.results||[]).map(x=>normalizeImage(x,type)),exclude).map(x=>scoreCandidate(x,type,meta,rejects,preferred));
  const hardRejected=x=>x.scoreReasons.includes("hard-video-host")||x.scoreReasons.includes("hard-cover");
  let clean=rows.filter(x=>x._score>=2&&!hardRejected(x)&&!x.scoreReasons.includes("video-title"));
@@ -195,21 +213,23 @@ async function searchType(env,meta,type,exclude,rejects,preferred,visionVerify=t
  clean.sort((a,b)=>b._score-a._score);
  if(!visionVerify||!env.AI)return{query,results:clean.slice(0,3).map(({_score,...x})=>({...x,verificationStatus:"heuristic-only"})),visionChecks:0,visionPassed:0,visionErrors:env.AI?[]:["AI binding unavailable"]};
 
- const accepted=[],errors=[],seen=new Set();let checks=0,passed=0,gifConversions=0,visionTimeouts=0,imageFetchTimeouts=0;
+ const accepted=[],errors=[],seen=new Set();let checks=0,passed=0,gifConversions=0,visionTimeouts=0,imageFetchTimeouts=0,visionInconsistencies=0;
  for(const row of clean.slice(0,VISION_MAX_CHECKS_PER_TYPE)){
    if(accepted.length>=VISION_TARGET_RESULTS_PER_TYPE||Date.now()>=deadline-1000)break;
    checks++;
    const check=await verifyWithVision(env,row,type,meta,deadline);
    if(check.gifConverted)gifConversions++;
    seen.add(row);
-   if(!check.ok){errors.push(check.error);if(/Vision timeout/.test(check.error))visionTimeouts++;if(/(?:image|GIF conversion).*timeout/i.test(check.error))imageFetchTimeouts++;accepted.push({...row,verificationStatus:check.fetchFailed?"vision-fetch-failed":"vision-unavailable"});continue}
+   if(!check.ok){errors.push(check.error);if(/Vision timeout/.test(check.error))visionTimeouts++;if(/(?:image|GIF conversion).*timeout/i.test(check.error))imageFetchTimeouts++;if(metadataTitleStrong(row,meta)&&metadataScoreEvidence(row,type))accepted.push({...row,verificationStatus:check.fetchFailed?"vision-fetch-failed":"vision-unavailable"});continue}
    const candidate={...row,vision:check.vision,verificationStatus:"vision-checked"};
-   if(acceptVision(candidate,check.vision,type,meta)){accepted.push(candidate);passed++}
-   else if(!check.vision.is_score)errors.push(`hard-not-score: ${check.vision.reason||"not a score"}`)
-   else if(check.vision.title_match==="no"&&check.vision.title_match_confidence>=0.75)errors.push(`hard-song-mismatch: ${check.vision.visible_title||"different visible title"}`)
+   const inconsistent=visionInconsistent(check.vision);if(inconsistent){visionInconsistencies++;errors.push(`vision-inconsistent: ${check.vision.content_class}`)}
+   const hardReject=hardVisionReject(check.vision);
+   if(hardReject)errors.push(`${hardReject}: ${check.vision.visible_title||check.vision.reason||"rejected"}`)
+   else if(visionConfirmed(check.vision,type)){accepted.push({...candidate,verificationStatus:inconsistent?"vision-inconsistent":"vision-checked"});passed++}
+   else if(metadataTitleStrong(row,meta)&&metadataScoreEvidence(row,type))accepted.push({...candidate,verificationStatus:"vision-uncertain"})
  }
- for(const row of clean)if(accepted.length<3&&!seen.has(row)&&metadataTitleStrong(row,meta))accepted.push({...row,verificationStatus:"heuristic-only"});
- return{query,results:accepted.slice(0,3).map(({_score,...x})=>x),visionChecks:checks,visionPassed:passed,gifConversions,visionTimeouts,imageFetchTimeouts,hardVideoRejects:rows.filter(x=>x.scoreReasons.includes("hard-video-host")).length,visionErrors:errors};
+ for(const row of clean)if(accepted.length<3&&!seen.has(row)&&metadataTitleStrong(row,meta)&&metadataScoreEvidence(row,type))accepted.push({...row,verificationStatus:"heuristic-only"});
+ return{query,results:accepted.slice(0,3).map(({_score,...x})=>x),rawCandidateCount:(data.results||[]).length,visionCandidateCount:checks,visionChecks:checks,visionPassed:passed,visionInconsistencies,gifConversions,visionTimeouts,imageFetchTimeouts,hardVideoRejects:rows.filter(x=>x.scoreReasons.includes("hard-video-host")).length,visionErrors:errors};
 }
 
 export { normalizeTitle, imageQuery };
@@ -237,16 +257,16 @@ export default{async fetch(request,env){
    if(!meta.coreTitle)return json({error:"title is required"},400,origin);
    const types=Array.isArray(body.requestedTypes)&&body.requestedTypes.length?body.requestedTypes.filter(x=>["chord","staff","numbered"].includes(x)):["chord","staff","numbered"];
    const exclude=Array.isArray(body.excludeUrls)?body.excludeUrls:[],rejects=body.sourceRejectCounts&&typeof body.sourceRejectCounts==="object"?body.sourceRejectCounts:{},preferred=Array.isArray(body.preferredSources)?body.preferredSources:[];
-   const startedAt=Date.now(),deadline=startedAt+SEARCH_DEADLINE_MS,results={chord:[],staff:[],numbered:[]},queries={},visionErrors=[];let visionChecks=0,visionPassed=0,gifConversions=0,visionTimeouts=0,imageFetchTimeouts=0,hardVideoRejects=0,requestsUsed=0;
+   const startedAt=Date.now(),deadline=startedAt+SEARCH_DEADLINE_MS,results={chord:[],staff:[],numbered:[]},queries={},rawCandidateCounts={},visionCandidateCounts={},visionErrors=[];let visionChecks=0,visionPassed=0,visionInconsistencies=0,gifConversions=0,visionTimeouts=0,imageFetchTimeouts=0,hardVideoRejects=0,requestsUsed=0;
    for(const type of types){
      if(Date.now()>=deadline)break;
      const found=await searchType(env,meta,type,exclude,rejects,preferred,body.visionVerify!==false,deadline);requestsUsed++;
-     results[type]=found.results;queries[type]=found.query;visionChecks+=found.visionChecks;visionPassed+=found.visionPassed;
+     results[type]=found.results;queries[type]=found.query;rawCandidateCounts[type]=found.rawCandidateCount||0;visionCandidateCounts[type]=found.visionCandidateCount||0;visionChecks+=found.visionChecks;visionPassed+=found.visionPassed;visionInconsistencies+=found.visionInconsistencies||0;
      gifConversions+=found.gifConversions||0;
      visionTimeouts+=found.visionTimeouts||0;imageFetchTimeouts+=found.imageFetchTimeouts||0;hardVideoRejects+=found.hardVideoRejects||0;
      visionErrors.push(...found.visionErrors.map(e=>`${type}: ${e}`));
    }
-   return json({schemaVersion:"1.6",title:meta.coreTitle,titleMeta:meta,results,queries,provider:"Brave Image Search + Workers AI Vision",requestsUsed,elapsedMs:Date.now()-startedAt,deadlineReached:Date.now()>=deadline,visionChecks,visionPassed,visionTimeouts,imageFetchTimeouts,gifConversions,hardVideoRejects,visionErrors:visionErrors.slice(0,6),visionModel:VISION_MODEL,filter:"visual-score-and-song-verification-v2"},200,origin)
+   return json({schemaVersion:"1.6",title:meta.coreTitle,titleMeta:meta,results,queries,rawCandidateCounts,visionCandidateCounts,provider:"Brave Image Search + Workers AI Vision",requestsUsed,elapsedMs:Date.now()-startedAt,deadlineReached:Date.now()>=deadline,visionChecks,visionPassed,visionInconsistencies,visionTimeouts,imageFetchTimeouts,gifConversions,hardVideoRejects,visionErrors:visionErrors.slice(0,6),visionModel:VISION_MODEL,filter:"visual-score-and-song-verification-v2"},200,origin)
  }catch(error){return json({error:error.message||"search failed"},500,origin)}
  if(request.method==="POST"&&url.pathname==="/analyze-audio")return json({error:"NOT_IMPLEMENTED",message:"Audio analysis is not implemented in Worker V1.4."},501,origin);
  return json({error:"Not found"},404,origin)
